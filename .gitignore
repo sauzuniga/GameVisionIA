@@ -1,0 +1,49 @@
+venv/
+
+
+
+# Variables de entorno (NUNCA subir)
+
+.env
+
+backend/.env
+
+
+
+# Base de datos
+
+db/gamevision.db
+
+
+
+# Python
+
+__pycache__/
+
+*.pyc
+
+*.pyo
+
+*.pkl
+
+
+
+# Node
+
+frontend/node_modules/
+
+frontend/dist/
+
+
+
+# VS Code
+
+.vscode/
+
+
+
+# Sistema
+
+.DS_Store
+
+Thumbs.db 
