@@ -7,7 +7,7 @@ import os
 from database import get_db
 from models import Prediction, ChatSession
 from schemas import GameInput, PredictionResponse
-
+from auth import get_current_user
 router = APIRouter()
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'rf_model.pkl')
@@ -24,7 +24,7 @@ def get_potential_level(probability: float) -> str:
         return "Bajo"
 
 @router.post("/predict", response_model=PredictionResponse)
-def predict(game: GameInput, db: Session = Depends(get_db)):
+def predict(game: GameInput, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)  ):
     input_data = pd.DataFrame([{
         "price_initial (USD)": game.price_initial,
         "is_free": game.is_free,
@@ -77,6 +77,7 @@ def predict(game: GameInput, db: Session = Depends(get_db)):
     if game.cat_Shared_Split_Screen_Co_op: categories_selected.append("Shared/Split Screen Co-op")
 
     db_prediction = Prediction(
+        user_id=user_id,
         probability=probability,
         predicted_class=predicted_class,
         potential_level=potential_level,

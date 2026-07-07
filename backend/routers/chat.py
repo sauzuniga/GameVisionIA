@@ -5,7 +5,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 import os
 from dotenv import load_dotenv
-
+from auth import get_current_user
 from database import get_db
 from models import ChatMessage, ChatSession
 from schemas import ChatMessageInput, ChatMessageResponse
@@ -38,7 +38,7 @@ def build_history(session_id: int, db: Session):
 
 
 @router.post("/chat", response_model=ChatMessageResponse)
-def chat(data: ChatMessageInput, db: Session = Depends(get_db)):
+def chat(data: ChatMessageInput, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
     session = db.query(ChatSession).filter(ChatSession.id == data.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
@@ -127,7 +127,7 @@ Responde siempre en español. Sé directo, profesional y útil. Sin introduccion
 
 
 @router.get("/chat/{session_id}/messages")
-def get_messages(session_id: int, db: Session = Depends(get_db)):
+def get_messages(session_id: int, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
     messages = db.query(ChatMessage).filter(
         ChatMessage.session_id == session_id
     ).order_by(ChatMessage.created_at).all()

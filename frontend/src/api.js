@@ -1,4 +1,6 @@
  import axios from 'axios'
+import { supabase } from './supabaseClient'
+
 
 
 
@@ -8,6 +10,20 @@ const API = axios.create({
 
 })
 
+
+API.interceptors.request.use(async (config) => {
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (session) {
+
+    config.headers.Authorization = `Bearer ${session.access_token}`
+
+  }
+
+  return config
+
+})
 
 
 export const predictGame = async (gameData) => {

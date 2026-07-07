@@ -1,10 +1,26 @@
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../supabaseClient'
 
 
 
 export default function Landing() {
 
   const navigate = useNavigate()
+  const handleLogin = async () => {
+
+  await supabase.auth.signInWithOAuth({
+
+    provider: 'google',
+
+    options: {
+
+      redirectTo: `${window.location.origin}/auth/callback`
+
+    }
+
+  })
+
+} 
 
 
 
@@ -22,7 +38,7 @@ export default function Landing() {
 
         </div>
 
-        <button className="landing-nav-cta" onClick={() => navigate('/app')}>
+        <button className="landing-nav-cta" onClick={handleLogin}>
 
           Ir a la aplicación
 
@@ -70,7 +86,7 @@ export default function Landing() {
 
         <div className="landing-ctas">
 
-          <button className="landing-btn-primary" onClick={() => navigate('/app')}>
+          <button className="landing-btn-primary" onClick={handleLogin}>
 
             Analizar mi juego
 
@@ -214,7 +230,7 @@ export default function Landing() {
         </h2>
         
         <div className="landing-tech-strip">
-          {['Random Forest','Scikit-learn','FastAPI','React + Vite','Gemini 2.5 Flash','LangChain','SQLite'].map(t => (
+          {['Random Forest','Scikit-learn','FastAPI','React + Vite','Gemini 2.5 Flash','LangChain','Supabase'].map(t => (
             <div key={t} className="landing-tech-item">
               <div className="landing-tech-dot"></div>{t}
             </div>

@@ -7,7 +7,7 @@ venv/
 .env
 
 backend/.env
-
+frontend/.env
 
 
 # Base de datos

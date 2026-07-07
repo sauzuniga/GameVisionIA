@@ -1,4 +1,4 @@
- import { StrictMode } from 'react'
+import { StrictMode } from 'react'
 
 import { createRoot } from 'react-dom/client'
 
@@ -9,6 +9,10 @@ import './index.css'
 import App from './App.jsx'
 
 import Landing from './components/Landing.jsx'
+
+import AuthCallback from './components/AuthCallback.jsx'
+
+import ProtectedRoute from './components/ProtectedRoute.jsx'
 
 
 
@@ -22,7 +26,17 @@ createRoot(document.getElementById('root')).render(
 
         <Route path="/" element={<Landing />} />
 
-        <Route path="/app" element={<App />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+
+        <Route path="/app" element={
+
+          <ProtectedRoute>
+
+            <App />
+
+          </ProtectedRoute>
+
+        } />
 
       </Routes>
 
@@ -31,3 +45,4 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>
 
 ) 
+

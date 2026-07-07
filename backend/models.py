@@ -6,6 +6,7 @@ class Prediction(Base):
     __tablename__ = "predictions"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=False, index=True)
     probability = Column(Float)
     predicted_class = Column(Integer)
     potential_level = Column(String)

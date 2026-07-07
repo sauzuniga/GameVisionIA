@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from './supabaseClient'
+import { useState, useEffect } from 'react'
 
 import GameForm from './components/GameForm'
 
@@ -21,6 +23,29 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
 
   const [formKey, setFormKey] = useState(0)
+  const navigate = useNavigate()
+  const [user, setUser] = useState(null)
+  useEffect(() => {
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+
+      setUser(session?.user ?? null)
+
+    })
+
+  }, [])
+
+  const handleLogout = async () => {
+
+    await supabase.auth.signOut()
+
+    navigate('/', { replace: true })
+
+  }
+
+
+
+
 
   const handlePredictionResult = (result) => {
 
@@ -76,11 +101,41 @@ function App() {
 
         </div>
 
-        <button className="history-btn" onClick={() => setShowHistory(true)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 
-          📋 Historial
+  {user && (
 
-        </button>
+    <span style={{ fontSize: '0.85rem', color: '#D9D9D9', opacity: 0.7 }}>
+
+      {user.user_metadata?.full_name || user.email}
+
+    </span>
+
+  )}
+
+  <button className="history-btn" onClick={() => setShowHistory(true)}>
+
+    📋 Historial
+
+  </button>
+
+  <button
+
+    className="history-btn"
+
+    onClick={handleLogout}
+
+    style={{ background: 'transparent', border: '1px solid #3C6E71' }}
+
+  >
+
+    Cerrar sesión
+
+  </button>
+
+</div> 
+
+
 
       </header>
 
