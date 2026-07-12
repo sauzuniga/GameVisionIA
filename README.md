@@ -174,8 +174,6 @@ GameVisionIA/
 - `backend/` — lógica del servidor FastAPI, modelos de datos SQLAlchemy, endpoints y verificación JWT
 - `frontend/` — aplicación React con Vite, componentes de UI y cliente de Supabase
 - `docs/` — documentación técnica del módulo 4: diagnóstico, arquitecturas, riesgos y plan de mejora
-- `tests/` — reservada para pruebas automatizadas que se desarrollarán en Semana 3
-- `data/` — reservada para datasets o archivos de referencia del modelo
 - El archivo `rf_model.pkl` (63MB) no está en el repositorio; en local se copia manualmente, en producción se descargará desde GitHub Releases
 
 ---
