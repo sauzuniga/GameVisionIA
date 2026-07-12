@@ -314,9 +314,9 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Login con Google | [Ver captura](docs/evidencias/LoginGoogle.png) | Autenticación con Google OAuth mediante Supabase Auth |
 | Formulario y resultado de predicción | [Ver captura](docs/evidencias/formulario-resultado-prediccion.png) | Entrada de datos del videojuego y resultado generado por el modelo |
 | Chatbot | [Ver captura](docs/evidencias/Chatbot.png) | Asistente conversacional interpretando el resultado |
-| Historial almacenado | [Ver captura](docs/evidencias/HistorialAlmacenado.png) | Recuperación de predicciones o conversaciones previas |
-| Tabla `predictions` en Supabase | [Ver captura](docs/evidencias/supabasepredictions.png) | Predicciones almacenadas con `user_id`, probabilidad y nivel de potencial |
-| Tabla `chat_sessions` en Supabase | [Ver captura](docs/evidencias/supabase_chat_sessions.png) | Sesiones de conversación almacenadas en la base de datos |
+| Historial almacenado | [Ver captura](docs/evidencias/HistorialAlmacenado.jpeg) | Recuperación de predicciones o conversaciones previas |
+| Tabla `predictions` en Supabase | [Ver captura](docs/evidencias/supabasepredictions.jpeg) | Predicciones almacenadas con `user_id`, probabilidad y nivel de potencial |
+| Tabla `chat_sessions` en Supabase | [Ver captura](docs/evidencias/supabase_chat_sessions.jpeg) | Sesiones de conversación almacenadas en la base de datos |
 
 ---
 
