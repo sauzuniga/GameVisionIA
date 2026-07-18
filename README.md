@@ -71,11 +71,16 @@ El modelo Random Forest analiza las 22 características configurables del juego 
 - Historial de predicciones por usuario guardado en Supabase Postgres
 - Recuperación de conversaciones anteriores desde el historial
 - Verificación de JWT con algoritmo ES256 mediante PyJWKClient
+- Endpoint GET /health que verifica el estado del modelo y la base de datos
+- Endpoint GET /metadata con información del modelo, métricas y contrato de la API
+- Endpoint POST /api/predict-demo público (sin JWT) para pruebas externas
+- Capa de servicios separada en backend/services/predict_service.py
+- Validaciones de entrada con rangos y reglas de negocio en schemas.py
+- Manejo controlado de errores con códigos HTTP descriptivos (422, 503, 500)
 
 ### Funcionalidades incompletas o pendientes
 
 - Despliegue en producción (actualmente solo corre en entorno local)
-- Las rutas `localhost:8000` en `api.js` y `localhost:5173` en el CORS están hardcodeadas; deben migrarse a variables de entorno antes de producción
 - Google OAuth en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
 - Sin tests automatizados ni pipeline CI/CD
 - Sin Docker ni configuración de contenedor
@@ -222,6 +227,19 @@ npm run dev
 
 Frontend disponible en `http://localhost:5173`
 
+### Probar la API
+
+Una vez corriendo el backend, se pueden probar los endpoints públicos desde:
+
+**Swagger UI:** `http://localhost:8000/docs`
+
+**curl:**
+```bash
+curl -X GET "http://localhost:8000/health"
+curl -X GET "http://localhost:8000/metadata"
+```
+Ver documentación completa en [docs/api.md](docs/api.md)
+
 ### Archivo del modelo
 
 Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.  
@@ -285,10 +303,10 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 
 | Semana | Mejora esperada | Evidencia esperada |
 |---|---|---|
-| Semana 2 | Eliminar rutas hardcodeadas, versionar API bajo `/api/v1/`, validaciones Pydantic robustas, manejo de errores estructurado | Variables de entorno funcionando, Swagger actualizado en `/docs`, respuestas de error consistentes |
+| Semana 2 | ✅ Endpoints /health, /metadata y /predict-demo implementados. Validaciones Pydantic, manejo de errores, capa de servicios separada, CORS con variable de entorno | Swagger funcional, evidencia con curl en CMD, docs/api.md completo |
 | Semana 3 | Tests unitarios del modelo y endpoints, pipeline CI/CD en GitHub Actions, activar políticas RLS básicas por `user_id` | Badge de CI en README, resultados de tests en GitHub Actions, evidencia de políticas RLS aplicadas |
 | Semana 4 | Dockerfile para el backend, modelo en GitHub Releases, frontend en Vercel, backend en Render, UptimeRobot activo | URL pública funcional de la aplicación completa accesible desde el navegador |
-| Semana 5 | Logs con módulo `logging` de Python, persistir memoria del chat en DB, endpoint `/health` | Logs visibles en dashboard de Render, chat que mantiene historial al reiniciar el servidor |
+| Semana 5 | Logs con módulo `logging` de Python, persistir memoria del chat en DB| Logs visibles en dashboard de Render, chat que mantiene historial al reiniciar el servidor |
 | Semana 6 | Auditar seguridad y validar acceso por usuario, limpiar exposición de errores, OAuth fuera de modo Testing, documentación final | Demo en producción, README con URL real, defensa técnica preparada |
 
 ---
