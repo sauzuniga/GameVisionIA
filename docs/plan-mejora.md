@@ -10,7 +10,7 @@
 
 | Acción | Detalle |
 |---|---|
-| Eliminar rutas absolutas hardcodeadas | Mover `localhost:8000` a `VITE_API_URL` en `frontend/.env` y `localhost:5173` a `ALLOWED_ORIGINS` en `backend/.env` |
+| Configuración de URLs por entorno | Mantener `VITE_API_URL` en `frontend/.env` y `ALLOWED_ORIGINS` en `backend/.env` para separar desarrollo local y despliegue |
 | Versionar la API | Mover todos los endpoints a `/api/v1/` |
 | Mejorar schemas Pydantic | Agregar validaciones de rango (precio ≥ 0, año válido, al menos un género seleccionado) |
 | Manejo de errores estructurado | Devolver respuestas de error con formato consistente `{error, detail, code}` |

@@ -93,5 +93,5 @@ flowchart TD
 - El acceso OAuth está limitado a cuentas aprobadas manualmente (modo Testing)
 - No existe ningún test automatizado
 - No existe Docker ni script de despliegue
-- El frontend y backend todavía dependen de rutas locales hardcodeadas (`localhost:8000` en el frontend y `localhost:5173` en CORS), por lo que deben migrarse a variables de entorno antes del despliegue.
+- El frontend y backend usan variables de entorno para configurar las URLs (`VITE_API_URL` en frontend y `ALLOWED_ORIGINS` en backend), manteniendo valores locales por defecto para desarrollo.
 - Las tablas de Supabase requieren revisión de Row Level Security (RLS) y políticas por `user_id` antes de considerarse seguras para producción.

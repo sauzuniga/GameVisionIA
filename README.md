@@ -148,6 +148,9 @@ GameVisionIA/
       predict.py
       chat.py
       history.py
+    services/
+      _init_.py
+      predict_service.py
     main.py
     database.py
     models.py
@@ -170,6 +173,8 @@ GameVisionIA/
     arquitectura-objetivo.md
     riesgos-tecnicos.md
     plan-mejora.md
+    api.md
+    evidencias/
   README.md
   .gitignore
 ```
@@ -241,7 +246,7 @@ curl -X GET "http://localhost:8000/metadata"
 Ver documentación completa en [docs/api.md](docs/api.md)
 
 ### Archivo del modelo
-
+[Descargar modelo Random Forest (`rf_model.pkl`)](https://drive.google.com/file/d/13IYfQMRxx3-ZS70z5Hjs2ir8kre_j2_z/view?usp=sharing)
 Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.  
 *(En producción se descargará automáticamente desde GitHub Releases)*
 
@@ -265,7 +270,24 @@ Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.
 Ver archivos `.env.example` en cada carpeta como referencia.
 
 ---
+---
 
+## API inteligente - Semana 2
+
+La funcionalidad principal de IA fue expuesta mediante endpoints consumibles desde Swagger, curl o Postman.
+
+| Método | Endpoint | Autenticación | Descripción |
+|---|---|---|---|
+| GET | `/health` | No requiere | Verifica que el servicio, el modelo y la base de datos estén disponibles |
+| GET | `/metadata` | No requiere | Devuelve información del proyecto, modelo, métricas y endpoints |
+| POST | `/api/predict-demo` | No requiere | Ejecuta el modelo Random Forest real sin guardar historial |
+| POST | `/api/predict` | Requiere JWT | Ejecuta la predicción real y guarda historial asociado al usuario |
+
+La documentación técnica de la API está en [`docs/api.md`](docs/api.md).
+
+Las evidencias de prueba con Swagger y curl están en [`docs/evidencias/semana-2/evidencias-api-semana-2.pdf`](docs/evidencias/evidencias-api-semana-2.pdf).
+
+---
 ## 11. Datos Utilizados
 
 | Fuente de datos | Tipo de datos | Uso dentro del proyecto | Observaciones |
@@ -291,7 +313,7 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | `rf_model.pkl` de 63MB no está en el repo | Datos | Media | Alto | Alojar en GitHub Releases; el Dockerfile lo descarga con `wget` |
 | Chatbot depende de API externa de Gemini | Modelo | Media | Alto | Manejo de error graceful que informe al usuario si el servicio falla |
 | Memoria de chat en RAM se borra al reiniciar | Código | Alta | Medio | Persistir en tabla `chat_messages` que ya existe en la DB |
-| Rutas `localhost` hardcodeadas en frontend y CORS | Código | Alta | Alto | Migrar a `VITE_API_URL` y `ALLOWED_ORIGINS` en Semana 2 |
+| Configuración incorrecta de URLs en producción | Configuración | Media | Alto | Verificar que `VITE_API_URL` y `ALLOWED_ORIGINS` estén correctamente definidos en el entorno de despliegue |
 | Conexión directa a Supabase puede fallar por IPv6 | Configuración | Media | Alto | Usar Session pooler de Supabase (puerto 5432) |
 | Sin tests automatizados | Código | Alta | Medio | Escribir tests unitarios y de integración en Semana 3 |
 | RLS desactivado en Supabase | Seguridad | Media | Medio | Activar políticas básicas por `user_id` en Semana 3 y auditar seguridad en Semana 6 |

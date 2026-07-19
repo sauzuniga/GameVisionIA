@@ -15,10 +15,10 @@ Authorization: Bearer <token>
 ```
 
 Para obtener el token en desarrollo:
-1. Iniciá sesión en `http://localhost:5173`
-2. Abrí DevTools (F12) → Application → Local Storage
-3. Buscá la clave que empieza con `sb-` y copiá el valor de `access_token`
-4. En Swagger UI hacé click en **Authorize** y pegá `Bearer <token>`
+1. Inicia sesión en `http://localhost:5173`
+2. Abre DevTools (F12) → Application → Local Storage
+3. Busca la clave que empieza con `sb-` y copiá el valor de `access_token`
+4. En Swagger UI haz click en **Authorize** y pega `Bearer <token>`
 
 Los endpoints `/health`, `/metadata` y `/predict-demo` son **públicos** — no requieren token.
 
@@ -327,3 +327,11 @@ Devuelve el detalle de una predicción específica del usuario autenticado.
 | GET | /api/history | Historial del usuario | JWT requerido |
 | GET | /api/history/{id} | Detalle de predicción | JWT requerido |
 | GET | /docs | Swagger UI | Pública |
+
+---
+
+## Evidencias de prueba
+
+Las evidencias de prueba con Swagger y curl se encuentran en:
+
+[Ver evidencias API Semana 2](evidencias/evidencias-api-semana-2.pdf)
