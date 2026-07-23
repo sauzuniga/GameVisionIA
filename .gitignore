@@ -45,5 +45,7 @@ frontend/dist/
 # Sistema
 
 .DS_Store
-
+.db
 Thumbs.db 
+.ruff_cache/
+.pytest_cache/

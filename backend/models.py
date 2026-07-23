@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, Float, String, Text, DateTime
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.sql import func
+
 from database import Base
+
 
 class Prediction(Base):
     __tablename__ = "predictions"

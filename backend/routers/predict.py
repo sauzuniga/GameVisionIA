@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import Prediction, ChatSession
-from schemas import GameInput, PredictionResponse, DemoPredictionResponse
 from auth import get_current_user
-from services.predict_service import run_prediction, model
+from database import get_db
+from models import ChatSession, Prediction
+from schemas import DemoPredictionResponse, GameInput, PredictionResponse
+from services.predict_service import model, run_prediction
 
 router = APIRouter()
 
@@ -27,14 +27,14 @@ def predict(
 
     try:
         result = run_prediction(game.model_dump())
-    except Exception as e:
+    except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail={
                 "error": "prediction_failed",
-                "detail": f"Error al ejecutar el modelo: {str(e)}"
+                "detail": f"Error al ejecutar el modelo: {str(exc)}"
             }
-        )
+        ) from exc
 
     try:
         db_prediction = Prediction(
@@ -64,7 +64,7 @@ def predict(
         db.commit()
         db.refresh(chat_session)
 
-    except Exception as e:
+    except Exception as exc:
         db.rollback()
         raise HTTPException(
             status_code=500,
@@ -72,7 +72,7 @@ def predict(
                 "error": "database_error",
                 "detail": "Error al guardar la predicción."
             }
-        )
+        ) from exc
 
     return {
         "id": db_prediction.id,
@@ -106,14 +106,14 @@ def predict_demo(game: GameInput):
 
     try:
         result = run_prediction(game.model_dump())
-    except Exception as e:
+    except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail={
                 "error": "prediction_failed",
-                "detail": f"Error al ejecutar el modelo: {str(e)}"
+                "detail": f"Error al ejecutar el modelo: {str(exc)}"
             }
-        )
+        ) from exc
 
     return {
         "result": result["result"],

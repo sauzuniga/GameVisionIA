@@ -1,7 +1,8 @@
-import joblib
-import pandas as pd
 import os
 import uuid
+
+import joblib
+import pandas as pd
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'rf_model.pkl')
 MODEL_VERSION = "v1.0.0"

@@ -1,9 +1,9 @@
+
+import jwt
+from dotenv import load_dotenv
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import jwt
 from jwt import PyJWKClient
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -25,8 +25,8 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Security(securi
         if not user_id:
             raise HTTPException(status_code=401, detail="Token inválido")
         return user_id
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Sesión expirada")
-    except jwt.InvalidTokenError as e:
-        print(f"JWT Error: {e}")
-        raise HTTPException(status_code=401, detail="Token inválido")
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(status_code=401, detail="Sesión expirada") from exc
+    except jwt.InvalidTokenError as exc:
+        print(f"JWT Error: {exc}")
+        raise HTTPException(status_code=401, detail="Token inválido") from exc

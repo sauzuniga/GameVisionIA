@@ -1,6 +1,7 @@
-from pydantic import BaseModel, field_validator, model_validator
-from typing import Optional, List
 from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class GameInput(BaseModel):

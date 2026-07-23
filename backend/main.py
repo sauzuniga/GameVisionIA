@@ -1,12 +1,14 @@
+import os
+from datetime import datetime
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from database import engine, Base, SessionLocal
-from routers import predict, chat, history
 from sqlalchemy import text
-from datetime import datetime
-import os
-from dotenv import load_dotenv
+
+from database import Base, SessionLocal, engine
+from routers import chat, history, predict
 
 load_dotenv()
 
