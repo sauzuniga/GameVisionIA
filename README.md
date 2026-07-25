@@ -4,7 +4,7 @@
 ## 1. Información General
 
 **Módulo:** Módulo 4 - Desarrollo de Aplicaciones con IA  
-**Semana:** Semana 1 - Diagnóstico y arquitectura inicial  
+**Semana:** Semana 3 - Pruebas, automatización y CI/CD (documento acumulativo desde Semana 1)  
 **Nombre del equipo:** Gamevision 
 **Integrantes:**
 
@@ -77,13 +77,15 @@ El modelo Random Forest analiza las 22 características configurables del juego 
 - Capa de servicios separada en backend/services/predict_service.py
 - Validaciones de entrada con rangos y reglas de negocio en schemas.py
 - Manejo controlado de errores con códigos HTTP descriptivos (422, 503, 500)
+- Suite de 15 pruebas automatizadas (pytest) cubriendo salud, servicio IA, contrato público, validación, autenticación y chatbot — ver [docs/pruebas.md](docs/pruebas.md)
+- Pipeline de CI en GitHub Actions (`.github/workflows/ci.yml`): instala dependencias, corre Ruff y pytest en cada push
 
 ### Funcionalidades incompletas o pendientes
 
 - Despliegue en producción (actualmente solo corre en entorno local)
 - Google OAuth en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
-- Sin tests automatizados ni pipeline CI/CD
 - Sin Docker ni configuración de contenedor
+- Pipeline actual es solo CI (instala y prueba); el CD (despliegue automático) se agrega en Semana 4
 
 ### Evidencias actuales
 
@@ -143,6 +145,9 @@ Ver documento completo: [docs/arquitectura-objetivo.md](docs/arquitectura-objeti
 
 ```text
 GameVisionIA/
+  .github/
+    workflows/
+      ci.yml
   backend/
     routers/
       predict.py
@@ -151,12 +156,22 @@ GameVisionIA/
     services/
       _init_.py
       predict_service.py
+    tests/
+      conftest.py
+      test_health.py
+      test_predict_service.py
+      test_predict_demo.py
+      test_validation.py
+      test_predict_auth.py
+      test_chat.py
     main.py
     database.py
     models.py
     schemas.py
     auth.py
     requirements.txt
+    requirements-dev.txt
+    pyproject.toml
     .env.example
   frontend/
     src/
@@ -174,6 +189,8 @@ GameVisionIA/
     riesgos-tecnicos.md
     plan-mejora.md
     api.md
+    pruebas.md
+    registro-errores-semana-3.md
     evidencias/
   README.md
   .gitignore
@@ -259,6 +276,7 @@ Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.
 | `GEMINI_API_KEY` | API key de Google AI Studio | Sí |
 | `DATABASE_URL` | Connection string de Supabase Postgres (Session pooler, puerto 5432) | Sí |
 | `SUPABASE_JWT_SECRET` | JWT Secret del proyecto en Supabase → Project Settings → API | Sí |
+| `ALLOWED_ORIGINS` | Orígenes permitidos para CORS, por ejemplo `http://localhost:5173` | Sí |
 
 **frontend/.env**
 
@@ -266,6 +284,7 @@ Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.
 |---|---|---|
 | `VITE_SUPABASE_URL` | URL del proyecto de Supabase | Sí |
 | `VITE_SUPABASE_ANON_KEY` | Anon/public key de Supabase | Sí |
+| `VITE_API_URL` | URL base del backend, por ejemplo `http://localhost:8000/api` | Sí |
 
 Ver archivos `.env.example` en cada carpeta como referencia.
 
@@ -285,7 +304,37 @@ La funcionalidad principal de IA fue expuesta mediante endpoints consumibles des
 
 La documentación técnica de la API está en [`docs/api.md`](docs/api.md).
 
-Las evidencias de prueba con Swagger y curl están en [`docs/evidencias/semana-2/evidencias-api-semana-2.pdf`](docs/evidencias/evidencias-api-semana-2.pdf).
+Las evidencias de prueba con Swagger y curl están en [`docs/evidencias/evidencias-api-semana-2.pdf`](docs/evidencias/evidencias-api-semana-2.pdf).
+
+---
+
+## Pruebas y CI/CD - Semana 3
+
+Se agregó una suite de **15 pruebas automatizadas** con `pytest`, cubriendo 6 capas del backend (salud, servicio IA, contrato de la API pública, validación de entradas, autenticación, y chatbot), y un pipeline de **CI en GitHub Actions** que instala dependencias, revisa el código con Ruff y ejecuta las pruebas en cada `push`.
+
+### Ejecutar las pruebas localmente
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+Revisar calidad de código:
+
+```bash
+ruff check .
+```
+
+### Qué se simula y por qué
+
+Las pruebas no dependen de Supabase real, del modelo `rf_model.pkl` ni de la API de Gemini — se usa SQLite temporal, un modelo simulado y `FakeListChatModel` de LangChain. El detalle completo está en [docs/registro-errores-semana-3.md](docs/registro-errores-semana-3.md), sección 3.
+
+### Documentación relacionada
+
+- [`docs/pruebas.md`](docs/pruebas.md) — qué verifica cada archivo de pruebas
+- [`docs/registro-errores-semana-3.md`](docs/registro-errores-semana-3.md) — errores encontrados, correcciones aplicadas y evidencia de ejecución
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — definición del pipeline
 
 ---
 ## 11. Datos Utilizados
@@ -312,10 +361,10 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 |---|---|---|---|---|
 | `rf_model.pkl` de 63MB no está en el repo | Datos | Media | Alto | Alojar en GitHub Releases; el Dockerfile lo descarga con `wget` |
 | Chatbot depende de API externa de Gemini | Modelo | Media | Alto | Manejo de error graceful que informe al usuario si el servicio falla |
-| Memoria de chat en RAM se borra al reiniciar | Código | Alta | Medio | Persistir en tabla `chat_messages` que ya existe en la DB |
+| Caché de mensajes en RAM (`sessions_memory`) no escala a múltiples workers | Código | Baja | Bajo | El historial real ya persiste en `chat_messages` (la caché en RAM solo evita relecturas); revisar si se agrega Redis al escalar a más de 1 worker |
 | Configuración incorrecta de URLs en producción | Configuración | Media | Alto | Verificar que `VITE_API_URL` y `ALLOWED_ORIGINS` estén correctamente definidos en el entorno de despliegue |
 | Conexión directa a Supabase puede fallar por IPv6 | Configuración | Media | Alto | Usar Session pooler de Supabase (puerto 5432) |
-| Sin tests automatizados | Código | Alta | Medio | Escribir tests unitarios y de integración en Semana 3 |
+| ~~Sin tests automatizados~~ | Código | — | — | ✅ Resuelto en Semana 3 — ver [docs/pruebas.md](docs/pruebas.md) |
 | RLS desactivado en Supabase | Seguridad | Media | Medio | Activar políticas básicas por `user_id` en Semana 3 y auditar seguridad en Semana 6 |
 | Render duerme el servidor tras 15 min sin uso | Despliegue | Alta | Medio | Configurar UptimeRobot para ping cada 10 minutos |
 
@@ -326,7 +375,7 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Semana | Mejora esperada | Evidencia esperada |
 |---|---|---|
 | Semana 2 | ✅ Endpoints /health, /metadata y /predict-demo implementados. Validaciones Pydantic, manejo de errores, capa de servicios separada, CORS con variable de entorno | Swagger funcional, evidencia con curl en CMD, docs/api.md completo |
-| Semana 3 | Tests unitarios del modelo y endpoints, pipeline CI/CD en GitHub Actions, activar políticas RLS básicas por `user_id` | Badge de CI en README, resultados de tests en GitHub Actions, evidencia de políticas RLS aplicadas |
+| Semana 3 | ✅ 15 tests automatizados (unitarios, contrato, validación, autenticación, chatbot) con pytest, pipeline de CI en GitHub Actions, calidad de código con Ruff (41→0 hallazgos). Políticas RLS: **pendiente** | Resultados de tests en GitHub Actions (`docs/evidencias/semana3-*.png`), registro de errores en [docs/registro-errores-semana-3.md](docs/registro-errores-semana-3.md) |
 | Semana 4 | Dockerfile para el backend, modelo en GitHub Releases, frontend en Vercel, backend en Render, UptimeRobot activo | URL pública funcional de la aplicación completa accesible desde el navegador |
 | Semana 5 | Logs con módulo `logging` de Python, persistir memoria del chat en DB| Logs visibles en dashboard de Render, chat que mantiene historial al reiniciar el servidor |
 | Semana 6 | Auditar seguridad y validar acceso por usuario, limpiar exposición de errores, OAuth fuera de modo Testing, documentación final | Demo en producción, README con URL real, defensa técnica preparada |
@@ -341,7 +390,7 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 - La memoria de conversación del chatbot se pierde si el servidor se reinicia
 - El modelo OAuth está en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
 - El archivo `rf_model.pkl` de 63MB no puede incluirse en el repositorio por su tamaño
-- No existen tests automatizados ni pipeline de CI/CD
+- El pipeline de CI/CD (Semana 3) por ahora solo valida (CI); el despliegue automático (CD) se agrega en Semana 4
 - El proyecto actualmente requiere abrir dos terminales y configurar manualmente los archivos `.env`
 
 ---
@@ -357,6 +406,10 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Historial almacenado | [Ver captura](docs/evidencias/HistorialAlmacenado.jpeg) | Recuperación de predicciones o conversaciones previas |
 | Tabla `predictions` en Supabase | [Ver captura](docs/evidencias/supabasepredictions.jpeg) | Predicciones almacenadas con `user_id`, probabilidad y nivel de potencial |
 | Tabla `chat_sessions` en Supabase | [Ver captura](docs/evidencias/supabase_chat_sessions.jpeg) | Sesiones de conversación almacenadas en la base de datos |
+| Ruff sin errores | [Ver captura](docs/evidencias/pruebaRuff.png) | `ruff check .` → `All checks passed!` tras corregir 41 hallazgos |
+| Pruebas locales | [Ver captura](docs/evidencias/pytestlocal.png) | `pytest -v` → 15 pruebas pasando en entorno local |
+| Pipeline en GitHub Actions | [Ver captura](docs/evidencias/pipeline.png) | Vista resumen del workflow en verde (Success) |
+| Log detallado del pipeline | [Ver captura](docs/evidencias/workflows.png) | Las 15 pruebas ejecutándose una por una dentro de GitHub Actions |
 
 ---
 
@@ -368,6 +421,6 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 - [Google Gemini 2.5 Flash](https://ai.google.dev/) — Modelo LLM para el asistente conversacional
 - [Supabase](https://supabase.com/) — Autenticación con Google OAuth y base de datos Postgres
 - [React](https://react.dev/) + [Vite](https://vitejs.dev/) — Framework del frontend
-- [Dataset público de videojuegos de Steam](https://drive.google.com/file/d/13IYfQMRxx3-ZS70z5Hjs2ir8kre_j2_z/view?usp=sharing) — Dataset utilizado como base para entrenar el modelo Random Forest de GameVision IA.
+- [Dataset público de videojuegos de Steam](https://drive.google.com/file/d/1gBKymTt2OR5NVLVYlTuYrTRESsLgghRZ/view?usp=sharing)
 ---
 
