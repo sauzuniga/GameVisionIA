@@ -1,53 +1,142 @@
 name: CI - GameVision IA Backend
 
+
+
 on:
+
   push:
-    branches: ["main", "semana-3-test-ci"]
-  pull_request:
+
     branches: ["main"]
+
+  pull_request:
+
+    branches: ["main"]
+
   workflow_dispatch:
 
+
+
 permissions:
+
   contents: read
 
+
+
 defaults:
+
   run:
+
     working-directory: backend
 
+
+
 jobs:
+
   pruebas:
+
     name: Instalar dependencias y ejecutar pruebas
+
     runs-on: ubuntu-latest
 
+
+
     steps:
+
       - name: Descargar el repositorio
+
         uses: actions/checkout@v6
 
+
+
       - name: Configurar Python
+
         uses: actions/setup-python@v5
+
         with:
+
           python-version: "3.11"
+
           cache: "pip"
+
           cache-dependency-path: backend/requirements-dev.txt
 
+
+
       - name: Instalar dependencias
+
         run: |
+
           python -m pip install --upgrade pip
+
           pip install -r requirements-dev.txt
 
+
+
       - name: Revisar calidad del código con Ruff
+
         run: ruff check .
 
+
+
       - name: Ejecutar pruebas automatizadas
+
         run: |
+
           mkdir -p reportes
+
           pytest -v --junitxml=reportes/pytest.xml
 
+
+
       - name: Guardar reporte de pruebas
+
         if: always()
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: reporte-pruebas-gamevision
+
           path: backend/reportes/
+
           if-no-files-found: warn
+
           retention-days: 14
+
+
+
+  desplegar:
+
+    name: CD - Solicitar despliegue en Render
+
+    needs: pruebas
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+
+
+    steps:
+
+      - name: Activar Deploy Hook de Render
+
+        env:
+
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+        run: |
+
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+
+            echo "::error::Falta configurar el secreto RENDER_DEPLOY_HOOK_URL"
+
+            exit 1
+
+          fi
+
+          curl --fail --show-error --silent --request POST "$RENDER_DEPLOY_HOOK_URL"
+
+          echo "Solicitud de despliegue enviada correctamente a Render." 
+
