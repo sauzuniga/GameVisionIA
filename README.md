@@ -4,13 +4,14 @@
 ## 1. Información General
 
 **Módulo:** Módulo 4 - Desarrollo de Aplicaciones con IA  
-**Semana:** Semana 3 - Pruebas, automatización y CI/CD (documento acumulativo desde Semana 1)  
-**Nombre del equipo:** Gamevision 
+**Semana:** Semana 4 - Despliegue, contenedores e infraestructura inicial (documento acumulativo desde Semana 1)  
+**Nombre del equipo:** GameVision  
+**URL en producción (backend):** https://gamevisionia.onrender.com  
 **Integrantes:**
 
-- Bryan Orlando Giron Argueta
+- Bryan Orlando Girón Argueta
 - Gerson Usiel Quintanilla Sánchez
-- Saul Emmanuel Zuniga Villatoro
+- Saúl Emmanuel Zúñiga Villatoro
 
 ---
 
@@ -78,14 +79,17 @@ El modelo Random Forest analiza las 22 características configurables del juego 
 - Validaciones de entrada con rangos y reglas de negocio en schemas.py
 - Manejo controlado de errores con códigos HTTP descriptivos (422, 503, 500)
 - Suite de 15 pruebas automatizadas (pytest) cubriendo salud, servicio IA, contrato público, validación, autenticación y chatbot — ver [docs/pruebas.md](docs/pruebas.md)
-- Pipeline de CI en GitHub Actions (`.github/workflows/ci.yml`): instala dependencias, corre Ruff y pytest en cada push
+- Pipeline CI/CD en GitHub Actions (`.github/workflows/ci.yml`): instala dependencias, ejecuta Ruff y pytest y, tras un `push` exitoso a `main`, activa el despliegue en Render mediante un Deploy Hook
+- Backend contenerizado con Docker (construcción multietapa, usuario sin privilegios) y desplegado públicamente en Render 
+- Modelo `rf_model.pkl` alojado en GitHub Releases, descargado automáticamente durante el build de Docker
+- Pipeline CI/CD completo: GitHub Actions ejecuta las pruebas y, si pasan, dispara automáticamente el despliegue en Render vía Deploy Hook (confirmado con la etiqueta "Triggered via Deploy Hook" en el panel de eventos de Render)
 
 ### Funcionalidades incompletas o pendientes
 
-- Despliegue en producción (actualmente solo corre en entorno local)
+- Frontend aún no desplegado en Vercel (backend ya sí está en producción)
 - Google OAuth en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
-- Sin Docker ni configuración de contenedor
-- Pipeline actual es solo CI (instala y prueba); el CD (despliegue automático) se agrega en Semana 4
+- Row Level Security (RLS) sin activar en Supabase
+- Logs estructurados y observabilidad (planeado para Semana 5)
 
 ### Evidencias actuales
 
@@ -111,11 +115,11 @@ Ver documento completo: [docs/arquitectura-actual.md](docs/arquitectura-actual.m
 |---|---|---|
 | Interfaz | React 18 + Vite. Landing con login, formulario, panel de resultados, chatbot e historial | Funcional |
 | Backend / lógica principal | FastAPI (Python 3.11). Endpoints REST para predicción, chat e historial. Verifica JWT ES256 en cada request | Funcional |
-| Componente IA — Predicción | Random Forest (scikit-learn, 200 árboles). Archivo `rf_model.pkl` de 63MB cargado en memoria al iniciar | Funcional |
+| Componente IA — Predicción | Random Forest (scikit-learn, 200 árboles). El archivo `rf_model.pkl` se almacena en GitHub Releases, se descarga durante el build de Docker y se carga en memoria al iniciar | Funcional en Render |
 | Componente IA — Chat | Gemini 2.5 Flash vía LangChain con memoria de conversación por sesión y guardrails en system prompt | Funcional |
 | Datos | Supabase Postgres. Tablas: predictions (con user_id), chat_sessions, chat_messages | Funcional |
-| Servicios externos | Google Cloud (OAuth 2.0), Supabase (Auth + DB), Google AI Studio (Gemini API) | Activos |
-| Configuración | Variables de entorno en `.env` (backend y frontend). Sin Docker. Ejecución manual en dos terminales | Manual |
+| Servicios externos | Render, Supabase (Auth + PostgreSQL), Google Cloud OAuth, Google AI Studio (Gemini API) y GitHub Releases | Activos |
+| Configuración | Backend contenerizado con Docker, desplegado en Render con variables de entorno gestionadas en el panel del servicio. Frontend aún corre solo en local con `.env` | Backend en producción / Frontend manual |
 
 **Diagrama:** Ver [docs/arquitectura-actual.md](docs/arquitectura-actual.md)
 
@@ -127,16 +131,16 @@ Ver documento completo: [docs/arquitectura-objetivo.md](docs/arquitectura-objeti
 
 **Elementos esperados al finalizar el módulo:**
 
-- Rutas absolutas migradas a variables de entorno (`VITE_API_URL`, `ALLOWED_ORIGINS`)
-- API versionada bajo `/api/v1/` con contratos documentados
-- Tests unitarios y de integración con pipeline CI/CD en GitHub Actions
-- Un solo contenedor Docker para el backend desplegado en Render
-- Frontend desplegado en Vercel sin Docker (automático desde GitHub)
-- Modelo `rf_model.pkl` alojado en GitHub Releases y descargado automáticamente en el build
-- Logs con módulo `logging` de Python capturados por Render
-- Endpoint `GET /health` para verificar estado del modelo y la base de datos
-- Row Level Security (RLS) activado en Supabase
-- Evaluar UptimeRobot o health checks externos para monitorear disponibilidad del backend durante la demo
+- ✅ Rutas absolutas migradas a variables de entorno (`VITE_API_URL`, `ALLOWED_ORIGINS`)
+- API versionada bajo `/api/v1/` con contratos documentados — pendiente
+- ✅ Tests unitarios y de integración con pipeline CI/CD en GitHub Actions
+- ✅ Un solo contenedor Docker para el backend desplegado en Render
+- Frontend desplegado en Vercel sin Docker (automático desde GitHub) — pendiente
+- ✅ Modelo `rf_model.pkl` alojado en GitHub Releases y descargado automáticamente en el build
+- Logs con módulo `logging` de Python capturados por Render — pendiente (Semana 5)
+- ✅ Endpoint `GET /health` para verificar estado del modelo y la base de datos
+- Row Level Security (RLS) activado en Supabase — pendiente
+- Evaluar UptimeRobot o health checks externos para monitorear disponibilidad del backend durante la demo — pendiente
 
 **Diagrama:** Ver [docs/arquitectura-objetivo.md](docs/arquitectura-objetivo.md)
 ---
@@ -154,7 +158,7 @@ GameVisionIA/
       chat.py
       history.py
     services/
-      _init_.py
+      __init__.py
       predict_service.py
     tests/
       conftest.py
@@ -169,6 +173,8 @@ GameVisionIA/
     models.py
     schemas.py
     auth.py
+    Dockerfile
+    .dockerignore
     requirements.txt
     requirements-dev.txt
     pyproject.toml
@@ -187,6 +193,7 @@ GameVisionIA/
     arquitectura-actual.md
     arquitectura-objetivo.md
     riesgos-tecnicos.md
+    plan-infraestructura.md
     plan-mejora.md
     api.md
     pruebas.md
@@ -198,10 +205,10 @@ GameVisionIA/
 
 **Notas sobre la estructura:**
 
-- `backend/` — lógica del servidor FastAPI, modelos de datos SQLAlchemy, endpoints y verificación JWT
+- `backend/` — lógica del servidor FastAPI, modelos de datos SQLAlchemy, endpoints, verificación JWT y `Dockerfile` para contenerizar el servicio
 - `frontend/` — aplicación React con Vite, componentes de UI y cliente de Supabase
-- `docs/` — documentación técnica del módulo 4: diagnóstico, arquitecturas, riesgos y plan de mejora
-- El archivo `rf_model.pkl` (63MB) no está en el repositorio; en local se copia manualmente, en producción se descargará desde GitHub Releases
+- `docs/` — documentación técnica del módulo 4: diagnóstico, arquitecturas, riesgos, pruebas, infraestructura, costos y registro de errores por semana
+- El archivo `rf_model.pkl` (63MB) no está en el repositorio; en local se copia manualmente, en producción el `Dockerfile` lo descarga automáticamente desde GitHub Releases durante el build
 
 ---
 
@@ -213,7 +220,8 @@ GameVisionIA/
 - Node.js 18+
 - Cuenta de Supabase con proyecto creado y Google OAuth configurado
 - API key de Google Gemini (Google AI Studio)
-- Archivo `rf_model.pkl` (solicitar al equipo o descargar desde el enlace compartido)
+- Docker Desktop, si se utilizará la ejecución mediante contenedor
+- Archivo `rf_model.pkl` únicamente para la ejecución manual sin Docker
 
 ### Backend
 
@@ -249,6 +257,25 @@ npm run dev
 
 Frontend disponible en `http://localhost:5173`
 
+### Ejecutar el backend con Docker
+
+Alternativa a instalar Python localmente — construye una imagen que descarga el modelo automáticamente desde GitHub Releases:
+
+```bash
+cd backend
+docker build -t gamevision-backend .
+docker run -p 8000:8000 --env-file .env gamevision-backend
+```
+
+Backend disponible en `http://localhost:8000`, igual que con `uvicorn` directo.
+
+### Despliegue actual
+
+- **Backend en Render:** https://gamevisionia.onrender.com
+- **Health check:** https://gamevisionia.onrender.com/health
+- **Documentación Swagger:** https://gamevisionia.onrender.com/docs
+- **Frontend:** pendiente de desplegar en Vercel
+
 ### Probar la API
 
 Una vez corriendo el backend, se pueden probar los endpoints públicos desde:
@@ -263,9 +290,16 @@ curl -X GET "http://localhost:8000/metadata"
 Ver documentación completa en [docs/api.md](docs/api.md)
 
 ### Archivo del modelo
-[Descargar modelo Random Forest (`rf_model.pkl`)](https://drive.google.com/file/d/13IYfQMRxx3-ZS70z5Hjs2ir8kre_j2_z/view?usp=sharing)
-Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.  
-*(En producción se descargará automáticamente desde GitHub Releases)*
+
+El modelo entrenado no se incluye directamente en el repositorio debido a su tamaño. Está publicado como asset en GitHub Releases:
+
+[Descargar modelo Random Forest (`rf_model.pkl`)](https://github.com/sauzuniga/GameVisionIA/releases/download/model-v1.0.0/rf_model.pkl)
+
+El `Dockerfile` lo descarga automáticamente durante la construcción de la imagen. Para ejecutar el backend manualmente sin Docker, debe descargarse y colocarse en:
+
+```text
+backend/rf_model.pkl
+```
 
 ### Variables de entorno
 
@@ -274,7 +308,7 @@ Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.
 | Variable | Descripción | Obligatoria |
 |---|---|---|
 | `GEMINI_API_KEY` | API key de Google AI Studio | Sí |
-| `DATABASE_URL` | Connection string de Supabase Postgres (Session pooler, puerto 5432) | Sí |
+| `DATABASE_URL` | Cadena de conexión de Supabase Postgres — usar el **Session Pooler** (no la conexión directa, que falla por IPv6 dentro de Docker) con `?sslmode=require` al final | Sí |
 | `SUPABASE_JWT_SECRET` | JWT Secret del proyecto en Supabase → Project Settings → API | Sí |
 | `ALLOWED_ORIGINS` | Orígenes permitidos para CORS, por ejemplo `http://localhost:5173` | Sí |
 
@@ -288,7 +322,24 @@ Copiar `rf_model.pkl` manualmente a `backend/rf_model.pkl`.
 
 Ver archivos `.env.example` en cada carpeta como referencia.
 
----
+### Valores según el entorno
+
+**Desarrollo local**
+
+```env
+ALLOWED_ORIGINS=http://localhost:5173
+VITE_API_URL=http://localhost:8000/api
+```
+
+**Producción, una vez desplegado el frontend**
+
+```env
+ALLOWED_ORIGINS=https://URL-DEL-FRONTEND.vercel.app
+VITE_API_URL=https://gamevisionia.onrender.com/api
+```
+
+Las variables sensibles del backend se administran desde Render. Las variables públicas necesarias para el frontend se configurarán en Vercel.
+
 ---
 
 ## API inteligente - Semana 2
@@ -308,9 +359,9 @@ Las evidencias de prueba con Swagger y curl están en [`docs/evidencias/evidenci
 
 ---
 
-## Pruebas y CI/CD - Semana 3
+## Pruebas y CI/CD — Semanas 3 y 4
 
-Se agregó una suite de **15 pruebas automatizadas** con `pytest`, cubriendo 6 capas del backend (salud, servicio IA, contrato de la API pública, validación de entradas, autenticación, y chatbot), y un pipeline de **CI en GitHub Actions** que instala dependencias, revisa el código con Ruff y ejecuta las pruebas en cada `push`.
+Se agregó una suite de **15 pruebas automatizadas** con `pytest`, cubriendo seis capas del backend: salud, servicio de IA, contrato de la API pública, validación de entradas, autenticación y chatbot. El workflow de GitHub Actions instala dependencias, revisa el código con Ruff y ejecuta las pruebas en cada `push` y pull request hacia `main`.
 
 ### Ejecutar las pruebas localmente
 
@@ -330,11 +381,47 @@ ruff check .
 
 Las pruebas no dependen de Supabase real, del modelo `rf_model.pkl` ni de la API de Gemini — se usa SQLite temporal, un modelo simulado y `FakeListChatModel` de LangChain. El detalle completo está en [docs/registro-errores-semana-3.md](docs/registro-errores-semana-3.md), sección 3.
 
+### Comportamiento del flujo CI/CD
+
+1. GitHub Actions descarga el repositorio.
+2. Configura Python 3.11 e instala las dependencias.
+3. Ejecuta Ruff y las pruebas automatizadas con pytest.
+4. Guarda un reporte JUnit como artefacto.
+5. Solo cuando el evento es un `push` a `main` y el job de pruebas termina correctamente, activa el Deploy Hook de Render.
+6. Render reconstruye y despliega la imagen Docker.
+
+Si Ruff o pytest fallan, el job de despliegue no se ejecuta y la nueva versión no se publica en Render.
+
 ### Documentación relacionada
 
 - [`docs/pruebas.md`](docs/pruebas.md) — qué verifica cada archivo de pruebas
 - [`docs/registro-errores-semana-3.md`](docs/registro-errores-semana-3.md) — errores encontrados, correcciones aplicadas y evidencia de ejecución
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — definición del pipeline
+
+---
+
+## Despliegue en producción - Semana 4
+
+El backend se contenerizó con Docker (construcción multietapa, usuario sin privilegios) y se desplegó públicamente en Render. El pipeline de CI de Semana 3 se extendió a CI/CD: cada push a `main` corre las 15 pruebas y, solo si pasan, dispara automáticamente el despliegue en Render mediante un Deploy Hook.
+
+**Ruta elegida:** Docker (contenedor único para el backend), en la plataforma PaaS Render.
+
+**URL pública del backend:** https://gamevisionia.onrender.com
+
+```bash
+curl https://gamevisionia.onrender.com/health
+curl -X POST https://gamevisionia.onrender.com/api/predict-demo \
+  -H "Content-Type: application/json" \
+  -d '{"price_initial": 14.99, "is_free": 0, "release_year": 2025, "release_month": 3, ...}'
+```
+
+**Flujo de CI/CD:**
+
+```text
+git push a main → GitHub Actions corre 15 pruebas → ¿pasan?
+    → SÍ → dispara Deploy Hook de Render → build de Docker → despliegue automático
+    → NO → nunca llega a Render, nada se despliega roto
+```
 
 ---
 ## 11. Datos Utilizados
@@ -350,7 +437,7 @@ Las pruebas no dependen de Supabase real, del modelo `rf_model.pkl` ni de la API
 - El dataset de Steam es público y no contiene información sensible
 - Los datos de usuarios se almacenan en Supabase con autenticación; cada usuario solo accede a los suyos
 - El modelo ya está entrenado; no se requiere el dataset original para ejecutar la aplicación
-- Las tablas de Supabase aún no tienen Row Level Security activado; se planea aplicar políticas básicas por `user_id` en Semana 3 y auditarlas en Semana 6.
+- Las tablas de Supabase todavía no tienen Row Level Security activado. La aplicación restringe el acceso desde el backend mediante JWT y `user_id`, pero la activación de políticas RLS permanece como una mejora prioritaria de seguridad.
 ---
 
 ## 12. Riesgos Técnicos y Deuda Técnica
@@ -359,14 +446,16 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 
 | Riesgo | Categoría | Probabilidad | Impacto | Mitigación propuesta |
 |---|---|---|---|---|
-| `rf_model.pkl` de 63MB no está en el repo | Datos | Media | Alto | Alojar en GitHub Releases; el Dockerfile lo descarga con `wget` |
+| ~~`rf_model.pkl` de 63MB no está en el repo~~ | Datos | — | — | ✅ Resuelto en Semana 4 — publicado en GitHub Release, el Dockerfile lo descarga con `curl` |
 | Chatbot depende de API externa de Gemini | Modelo | Media | Alto | Manejo de error graceful que informe al usuario si el servicio falla |
 | Caché de mensajes en RAM (`sessions_memory`) no escala a múltiples workers | Código | Baja | Bajo | El historial real ya persiste en `chat_messages` (la caché en RAM solo evita relecturas); revisar si se agrega Redis al escalar a más de 1 worker |
 | Configuración incorrecta de URLs en producción | Configuración | Media | Alto | Verificar que `VITE_API_URL` y `ALLOWED_ORIGINS` estén correctamente definidos en el entorno de despliegue |
-| Conexión directa a Supabase puede fallar por IPv6 | Configuración | Media | Alto | Usar Session pooler de Supabase (puerto 5432) |
+| ~~Conexión directa a Supabase puede fallar por IPv6~~ | Configuración | — | — | ✅ Resuelto en Semana 4 — Session Pooler de Supabase (IPv4) + `sslmode=require` |
 | ~~Sin tests automatizados~~ | Código | — | — | ✅ Resuelto en Semana 3 — ver [docs/pruebas.md](docs/pruebas.md) |
-| RLS desactivado en Supabase | Seguridad | Media | Medio | Activar políticas básicas por `user_id` en Semana 3 y auditar seguridad en Semana 6 |
-| Render duerme el servidor tras 15 min sin uso | Despliegue | Alta | Medio | Configurar UptimeRobot para ping cada 10 minutos |
+| RLS desactivado en Supabase | Seguridad | Media | Medio | **Pendiente** — prioridad próxima semana |
+| La instancia gratuita de Render puede suspenderse por inactividad | Despliegue | Alta | Bajo | Aceptado para el entorno académico; puede causar un arranque inicial lento. Se evaluará monitoreo externo o un plan de pago |
+| Conexión a BD directa al puerto de Postgres, no vía API REST | Seguridad | Baja | Medio | Patrón oficialmente recomendado por Supabase para servidores de larga duración; credenciales solo en variables de entorno del servidor. Pendiente: Network Restrictions de Supabase |
+| Un solo contenedor Docker, sin redundancia | Arquitectura | Baja | Medio | Aceptado como apropiado para el tamaño actual del proyecto; reevaluar solo si el tráfico real lo justifica |
 
 ---
 
@@ -376,7 +465,7 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 |---|---|---|
 | Semana 2 | ✅ Endpoints /health, /metadata y /predict-demo implementados. Validaciones Pydantic, manejo de errores, capa de servicios separada, CORS con variable de entorno | Swagger funcional, evidencia con curl en CMD, docs/api.md completo |
 | Semana 3 | ✅ 15 tests automatizados (unitarios, contrato, validación, autenticación, chatbot) con pytest, pipeline de CI en GitHub Actions, calidad de código con Ruff (41→0 hallazgos). Políticas RLS: **pendiente** | Resultados de tests en GitHub Actions (`docs/evidencias/semana3-*.png`), registro de errores en [docs/registro-errores-semana-3.md](docs/registro-errores-semana-3.md) |
-| Semana 4 | Dockerfile para el backend, modelo en GitHub Releases, frontend en Vercel, backend en Render, UptimeRobot activo | URL pública funcional de la aplicación completa accesible desde el navegador |
+| Semana 4 | ✅ Dockerfile para el backend, modelo en GitHub Releases, backend desplegado en Render, pipeline CI/CD completo (despliegue automático vía Deploy Hook). Frontend en Vercel y UptimeRobot: **pendientes** | Backend público funcional (`docs/evidencias/semana4-*.png`), registro de errores en [docs/registro-errores-semana-4.md](docs/registro-errores-semana-4.md) |
 | Semana 5 | Logs con módulo `logging` de Python, persistir memoria del chat en DB| Logs visibles en dashboard de Render, chat que mantiene historial al reiniciar el servidor |
 | Semana 6 | Auditar seguridad y validar acceso por usuario, limpiar exposición de errores, OAuth fuera de modo Testing, documentación final | Demo en producción, README con URL real, defensa técnica preparada |
 
@@ -387,11 +476,12 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 - El modelo fue entrenado con datos históricos de Steam hasta una fecha específica; no refleja tendencias recientes del mercado
 - El F1-score de ~47% indica dificultad para identificar correctamente juegos exitosos debido al desbalance natural del dataset
 - El chatbot depende de la API externa de Gemini; sin conexión a internet o sin cuota disponible no funciona
-- La memoria de conversación del chatbot se pierde si el servidor se reinicia
+- La caché conversacional en memoria se pierde si el servidor se reinicia, aunque el historial persistente permanece almacenado en Supabase
 - El modelo OAuth está en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
-- El archivo `rf_model.pkl` de 63MB no puede incluirse en el repositorio por su tamaño
-- El pipeline de CI/CD (Semana 3) por ahora solo valida (CI); el despliegue automático (CD) se agrega en Semana 4
-- El proyecto actualmente requiere abrir dos terminales y configurar manualmente los archivos `.env`
+- El archivo `rf_model.pkl` de 63MB no puede incluirse en el repositorio por su tamaño (se resuelve descargándolo desde GitHub Releases)
+- La instancia gratuita de Render puede suspenderse por inactividad y provocar un arranque inicial lento
+- El frontend todavía no está desplegado; solo el backend corre en producción por ahora
+- El proyecto localmente requiere abrir dos terminales (o usar Docker para el backend) y configurar manualmente los archivos `.env`
 
 ---
 
@@ -410,6 +500,7 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Pruebas locales | [Ver captura](docs/evidencias/pytestlocal.png) | `pytest -v` → 15 pruebas pasando en entorno local |
 | Pipeline en GitHub Actions | [Ver captura](docs/evidencias/pipeline.png) | Vista resumen del workflow en verde (Success) |
 | Log detallado del pipeline | [Ver captura](docs/evidencias/workflows.png) | Las 15 pruebas ejecutándose una por una dentro de GitHub Actions |
+| Informe de Semana 4 | [Ver PDF](docs/Semana4_Despliegue_Infraestructura_GameVisionIA.pdf) | Evidencias de contenedor, despliegue, endpoints, infraestructura, costos y riesgos |
 
 ---
 
