@@ -37,3 +37,22 @@ class ChatMessage(Base):
     role = Column(String)
     content = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
+
+class RequestLog(Base):
+    _tablename_ = "request_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(String, nullable=False, index=True)
+    method = Column(String, nullable=False)
+    path = Column(String, nullable=False, index=True)
+    status_code = Column(Integer, nullable=False)
+    duration_ms = Column(Float, nullable=False)
+    model_version = Column(String, nullable=True)
+    error_type = Column(String, nullable=True)
+
+    # Desglose por etapa, solo se llena en /predict y /predict-demo
+    validate_ms = Column(Float, nullable=True)
+    feature_prep_ms = Column(Float, nullable=True)
+    inference_ms = Column(Float, nullable=True)
+
+    created_at = Column(DateTime, server_default=func.now(), index=True)
