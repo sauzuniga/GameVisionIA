@@ -3,6 +3,7 @@ from sqlalchemy.sql import func
 
 from database import Base
 
+
 class Prediction(Base):
 
     __tablename__ = "predictions"
