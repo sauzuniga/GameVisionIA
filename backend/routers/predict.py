@@ -1,20 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-
 from sqlalchemy.orm import Session
 
-
-
 from auth import get_current_user
-
 from database import get_db
-
 from models import ChatSession, Prediction
-
 from schemas import DemoPredictionResponse, GameInput, PredictionResponse
-
 from services.predict_service import model, run_prediction
-
-
 
 router = APIRouter()
 

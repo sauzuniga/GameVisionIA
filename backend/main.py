@@ -1,38 +1,20 @@
 import json
-
 import logging
-
 import os
-
 import time
-
 import uuid
-
 from datetime import datetime
 
-
-
 from dotenv import load_dotenv
-
 from fastapi import FastAPI, Request
-
 from fastapi.middleware.cors import CORSMiddleware
-
 from fastapi.responses import JSONResponse
-
 from sqlalchemy import text
-
 from starlette.background import BackgroundTask
 
-
-
 from database import Base, SessionLocal, engine
-
 from models import RequestLog
-
 from routers import chat, history, predict
-
-
 
 load_dotenv()
 
