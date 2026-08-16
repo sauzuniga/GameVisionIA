@@ -4,9 +4,10 @@
 ## 1. Información General
 
 **Módulo:** Módulo 4 - Desarrollo de Aplicaciones con IA  
-**Semana:** Semana 4 - Despliegue, contenedores e infraestructura inicial (documento acumulativo desde Semana 1)  
+**Semana:** Semana 5 - Observabilidad, rendimiento y escalabilidad (documento acumulativo desde Semana 1)  
 **Nombre del equipo:** GameVision  
 **URL en producción (backend):** https://gamevisionia.onrender.com  
+**URL en producción (frontend):** https://game-vision-ia.vercel.app  
 **Integrantes:**
 
 - Bryan Orlando Girón Argueta
@@ -78,18 +79,24 @@ El modelo Random Forest analiza las 22 características configurables del juego 
 - Capa de servicios separada en backend/services/predict_service.py
 - Validaciones de entrada con rangos y reglas de negocio en schemas.py
 - Manejo controlado de errores con códigos HTTP descriptivos (422, 503, 500)
-- Suite de 15 pruebas automatizadas (pytest) cubriendo salud, servicio IA, contrato público, validación, autenticación y chatbot — ver [docs/pruebas.md](docs/pruebas.md)
+- Suite de 19 pruebas automatizadas (pytest) cubriendo salud, servicio IA, contrato público, validación, autenticación, chatbot y observabilidad — ver [docs/pruebas.md](docs/pruebas.md)
 - Pipeline CI/CD en GitHub Actions (`.github/workflows/ci.yml`): instala dependencias, ejecuta Ruff y pytest y, tras un `push` exitoso a `main`, activa el despliegue en Render mediante un Deploy Hook
 - Backend contenerizado con Docker (construcción multietapa, usuario sin privilegios) y desplegado públicamente en Render 
 - Modelo `rf_model.pkl` alojado en GitHub Releases, descargado automáticamente durante el build de Docker
 - Pipeline CI/CD completo: GitHub Actions ejecuta las pruebas y, si pasan, dispara automáticamente el despliegue en Render vía Deploy Hook (confirmado con la etiqueta "Triggered via Deploy Hook" en el panel de eventos de Render)
+- Frontend desplegado en Vercel (https://game-vision-ia.vercel.app), conectado al backend en producción — el flujo login → predicción → chat → historial funciona de punta a punta en producción real
+- Middleware de observabilidad global (`main.py`): genera `request_id`, mide `duration_ms`, agrega headers `X-Request-ID` / `X-Process-Time-Ms`, y aplica a **todos** los endpoints, no solo a `/predict`
+- Tabla `request_logs` en Supabase, con desglose interno de tiempos (`validate_ms`, `feature_prep_ms`, `inference_ms`) para las predicciones, guardado como `BackgroundTask` para no sumarse a la latencia medida
+- Retención automática de logs vía `pg_cron` (job `purge_request_logs_30d`, corre diario, borra filas con más de 30 días) — ver [backend/scripts/setup_retention.sql](backend/scripts/setup_retention.sql)
+- Script de línea base de rendimiento (`backend/scripts/benchmark_predict.py`) con cálculo de p50/p95/máx/tasa de error sobre `/predict-demo`, `/predict` real y `/chat`
+- Optimización aplicada en `/api/predict`: se redujo de 4 a 2-3 viajes de red hacia Supabase (uso de `flush()` en vez de dos ciclos de `commit()`+`refresh()`), con -58.6% de reducción medida en el overhead de autenticación + base de datos
 
 ### Funcionalidades incompletas o pendientes
 
-- Frontend aún no desplegado en Vercel (backend ya sí está en producción)
 - Google OAuth en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
 - Row Level Security (RLS) sin activar en Supabase
-- Logs estructurados y observabilidad (planeado para Semana 5)
+- Timeout explícito en la llamada de LangChain hacia Gemini — identificado como riesgo en Semana 5 (una llamada real tardó 177 segundos sin límite), queda como mejora propuesta para Semana 6
+- Prueba de carga concurrente (las mediciones de Semana 5 fueron secuenciales, no simulan múltiples usuarios al mismo tiempo)
 
 ### Evidencias actuales
 
@@ -118,8 +125,9 @@ Ver documento completo: [docs/arquitectura-actual.md](docs/arquitectura-actual.m
 | Componente IA — Predicción | Random Forest (scikit-learn, 200 árboles). El archivo `rf_model.pkl` se almacena en GitHub Releases, se descarga durante el build de Docker y se carga en memoria al iniciar | Funcional en Render |
 | Componente IA — Chat | Gemini 2.5 Flash vía LangChain con memoria de conversación por sesión y guardrails en system prompt | Funcional |
 | Datos | Supabase Postgres. Tablas: predictions (con user_id), chat_sessions, chat_messages | Funcional |
-| Servicios externos | Render, Supabase (Auth + PostgreSQL), Google Cloud OAuth, Google AI Studio (Gemini API) y GitHub Releases | Activos |
-| Configuración | Backend contenerizado con Docker, desplegado en Render con variables de entorno gestionadas en el panel del servicio. Frontend aún corre solo en local con `.env` | Backend en producción / Frontend manual |
+| Servicios externos | Render, Vercel, Supabase (Auth + PostgreSQL), Google Cloud OAuth, Google AI Studio (Gemini API) y GitHub Releases | Activos |
+| Configuración | Backend contenerizado con Docker, desplegado en Render con variables de entorno gestionadas en el panel del servicio. Frontend desplegado en Vercel con build automático desde GitHub | Backend y frontend en producción |
+| Observabilidad | Middleware global en `main.py` + tabla `request_logs` en Supabase con retención automática de 30 días (`pg_cron`) | Funcional en producción |
 
 **Diagrama:** Ver [docs/arquitectura-actual.md](docs/arquitectura-actual.md)
 
@@ -135,11 +143,13 @@ Ver documento completo: [docs/arquitectura-objetivo.md](docs/arquitectura-objeti
 - API versionada bajo `/api/v1/` con contratos documentados — pendiente
 - ✅ Tests unitarios y de integración con pipeline CI/CD en GitHub Actions
 - ✅ Un solo contenedor Docker para el backend desplegado en Render
-- Frontend desplegado en Vercel sin Docker (automático desde GitHub) — pendiente
+- ✅ Frontend desplegado en Vercel sin Docker (automático desde GitHub)
 - ✅ Modelo `rf_model.pkl` alojado en GitHub Releases y descargado automáticamente en el build
-- Logs con módulo `logging` de Python capturados por Render — pendiente (Semana 5)
+- ✅ Logs estructurados en JSON (módulo `logging` de Python) capturados por Render, más persistencia en tabla `request_logs` de Supabase con retención automática de 30 días
 - ✅ Endpoint `GET /health` para verificar estado del modelo y la base de datos
+- ✅ Línea base de rendimiento documentada (p50/p95/máx/error) con comparación antes/después de una mejora aplicada
 - Row Level Security (RLS) activado en Supabase — pendiente
+- Timeout explícito en la llamada a Gemini — pendiente (Semana 6)
 - Evaluar UptimeRobot o health checks externos para monitorear disponibilidad del backend durante la demo — pendiente
 
 **Diagrama:** Ver [docs/arquitectura-objetivo.md](docs/arquitectura-objetivo.md)
@@ -168,6 +178,10 @@ GameVisionIA/
       test_validation.py
       test_predict_auth.py
       test_chat.py
+      test_observability.py
+    scripts/
+      benchmark_predict.py
+      setup_retention.sql
     main.py
     database.py
     models.py
@@ -274,7 +288,9 @@ Backend disponible en `http://localhost:8000`, igual que con `uvicorn` directo.
 - **Backend en Render:** https://gamevisionia.onrender.com
 - **Health check:** https://gamevisionia.onrender.com/health
 - **Documentación Swagger:** https://gamevisionia.onrender.com/docs
-- **Frontend:** pendiente de desplegar en Vercel
+- **Frontend en Vercel:** https://game-vision-ia.vercel.app
+
+Nota: el plan gratuito de Render suspende el backend tras ~15 minutos sin tráfico. La primera petición tras ese período puede tardar hasta ~50-55 segundos en responder (cold-start medido y documentado en Semana 5).
 
 ### Probar la API
 
@@ -311,6 +327,8 @@ backend/rf_model.pkl
 | `DATABASE_URL` | Cadena de conexión de Supabase Postgres — usar el **Session Pooler** (no la conexión directa, que falla por IPv6 dentro de Docker) con `?sslmode=require` al final | Sí |
 | `SUPABASE_JWT_SECRET` | JWT Secret del proyecto en Supabase → Project Settings → API | Sí |
 | `ALLOWED_ORIGINS` | Orígenes permitidos para CORS, por ejemplo `http://localhost:5173` | Sí |
+| `TEST_ACCESS_TOKEN` | JWT de una cuenta de prueba, usado solo por `scripts/benchmark_predict.py` para medir `/predict` y `/chat` reales | No (solo para benchmark) |
+| `BENCHMARK_BASE_URL` | Ambiente contra el que corre el benchmark; por defecto `https://gamevisionia.onrender.com` | No (solo para benchmark) |
 
 **frontend/.env**
 
@@ -331,14 +349,33 @@ ALLOWED_ORIGINS=http://localhost:5173
 VITE_API_URL=http://localhost:8000/api
 ```
 
-**Producción, una vez desplegado el frontend**
+**Producción (valores reales en uso)**
 
 ```env
-ALLOWED_ORIGINS=https://URL-DEL-FRONTEND.vercel.app
+ALLOWED_ORIGINS=https://game-vision-ia.vercel.app
 VITE_API_URL=https://gamevisionia.onrender.com/api
 ```
 
-Las variables sensibles del backend se administran desde Render. Las variables públicas necesarias para el frontend se configurarán en Vercel.
+Las variables sensibles del backend se administran desde el panel de Render. Las variables públicas del frontend se administran desde el panel de Vercel.
+
+### Medir la línea base de rendimiento (Semana 5)
+
+```bash
+cd backend
+pip install requests   # única dependencia adicional para el script
+```
+
+Se necesita un `TEST_ACCESS_TOKEN` en `backend/.env` — un JWT real de una cuenta de prueba (debe estar agregada como "test user" en Google Cloud Console, ya que el OAuth sigue en modo Testing). Para obtenerlo: loguearse en https://game-vision-ia.vercel.app con esa cuenta, abrir las herramientas de desarrollador del navegador (F12) → pestaña Application/Almacenamiento → Local Storage → buscar la clave `sb-<project-ref>-auth-token` → copiar el valor de `access_token` de ahí. El token expira en aproximadamente 1 hora. Opcionalmente se puede definir `BENCHMARK_BASE_URL` para apuntar a un ambiente distinto al de producción. Luego:
+
+```bash
+python scripts/benchmark_predict.py
+```
+
+El script despierta el servicio, corre 20 peticiones secuenciales contra `/api/predict-demo`, 20 contra `/api/predict` (real, autenticado) y una muestra de 3 contra `/api/chat`, calcula p50/p95/máx/tasa de error, y guarda los resultados en `docs/evidencias/linea_base_rendimiento.json` (incluye ambiente, payload usado y commit de código de esa corrida). Sin `TEST_ACCESS_TOKEN` configurado, el script corre igual pero solo mide `/predict-demo`.
+
+### Activar la retención automática de logs (una sola vez)
+
+El archivo [`backend/scripts/setup_retention.sql`](backend/scripts/setup_retention.sql) contiene el SQL para activar `pg_cron` en Supabase y programar el borrado diario de filas de `request_logs` con más de 30 días. Se corre una única vez desde el **SQL Editor** del panel de Supabase (no requiere acceso desde la terminal ni variables de entorno adicionales).
 
 ---
 
@@ -361,7 +398,7 @@ Las evidencias de prueba con Swagger y curl están en [`docs/evidencias/evidenci
 
 ## Pruebas y CI/CD — Semanas 3 y 4
 
-Se agregó una suite de **15 pruebas automatizadas** con `pytest`, cubriendo seis capas del backend: salud, servicio de IA, contrato de la API pública, validación de entradas, autenticación y chatbot. El workflow de GitHub Actions instala dependencias, revisa el código con Ruff y ejecuta las pruebas en cada `push` y pull request hacia `main`.
+Se agregó una suite de **19 pruebas automatizadas** con `pytest` (15 desde Semana 3, ampliada con 4 más en Semana 5), cubriendo siete capas del backend: salud, servicio de IA, contrato de la API pública, validación de entradas, autenticación, chatbot y observabilidad. El workflow de GitHub Actions instala dependencias, revisa el código con Ruff y ejecuta las pruebas en cada `push` y pull request hacia `main`.
 
 ### Ejecutar las pruebas localmente
 
@@ -402,7 +439,7 @@ Si Ruff o pytest fallan, el job de despliegue no se ejecuta y la nueva versión 
 
 ## Despliegue en producción - Semana 4
 
-El backend se contenerizó con Docker (construcción multietapa, usuario sin privilegios) y se desplegó públicamente en Render. El pipeline de CI de Semana 3 se extendió a CI/CD: cada push a `main` corre las 15 pruebas y, solo si pasan, dispara automáticamente el despliegue en Render mediante un Deploy Hook.
+El backend se contenerizó con Docker (construcción multietapa, usuario sin privilegios) y se desplegó públicamente en Render. El pipeline de CI de Semana 3 se extendió a CI/CD: cada push a `main` corre la suite completa de pruebas y, solo si pasan, dispara automáticamente el despliegue en Render mediante un Deploy Hook.
 
 **Ruta elegida:** Docker (contenedor único para el backend), en la plataforma PaaS Render.
 
@@ -418,10 +455,37 @@ curl -X POST https://gamevisionia.onrender.com/api/predict-demo \
 **Flujo de CI/CD:**
 
 ```text
-git push a main → GitHub Actions corre 15 pruebas → ¿pasan?
+git push a main → GitHub Actions corre las pruebas → ¿pasan?
     → SÍ → dispara Deploy Hook de Render → build de Docker → despliegue automático
     → NO → nunca llega a Render, nada se despliega roto
 ```
+
+---
+
+## Observabilidad, rendimiento y escalabilidad - Semana 5
+
+Se incorporó observabilidad mínima real al proyecto (no un ejemplo aparte), se midió el rendimiento del flujo crítico de producción, y se aplicó una mejora con evidencia de comparación antes/después.
+
+**Instrumentación:**
+
+- Middleware global en `main.py` que corre para toda la API — genera `request_id`, mide `duration_ms`, agrega headers `X-Request-ID` / `X-Process-Time-Ms`, y persiste cada petición en la tabla `request_logs` de Supabase como `BackgroundTask` (después de responder, para no afectar la latencia medida).
+- Desglose interno de tiempos (`validate_ms`, `feature_prep_ms`, `inference_ms`) dentro de `run_prediction()`, correlacionado con el mismo `request_id` del middleware.
+- Retención automática: job `pg_cron` que borra logs con más de 30 días — ver [backend/scripts/setup_retention.sql](backend/scripts/setup_retention.sql).
+- Ningún log guarda tokens, contraseñas, encabezados de autorización, cadenas de conexión ni contenido de mensajes del chat — solo metadatos técnicos.
+
+**Línea base de rendimiento** (20 peticiones secuenciales por escenario, ambiente de producción):
+
+| Escenario | p50 | p95 | máx | error |
+|---|---|---|---|---|
+| `/predict-demo` (sin auth) | 817-1021 ms | 969-1195 ms | 1064-1295 ms | 0% |
+| `/predict` real (autenticado) | 1239-1431 ms | 1446-1784 ms | 1873-2335 ms | 0% |
+| `/chat` (muestra de 3) | avg 6280-12436 ms | — | 12900-30761 ms | 0-1 timeout |
+
+**Diagnóstico:** el modelo Random Forest representa solo 3-13% del tiempo total de una predicción real (39-46 ms medidos internamente); el resto es autenticación JWT y escrituras en Supabase. Se identificó además un cold-start real de ~53.5 segundos tras inactividad, y una llamada al chat que tardó 177 segundos sin que exista timeout explícito hacia Gemini.
+
+**Mejora aplicada:** se redujeron los viajes de red a Supabase en `/api/predict` de 4 (dos ciclos de `commit()`+`refresh()`) a 2-3 (`flush()` + un solo `commit()` final), midiendo -58.6% en el overhead de autenticación + base de datos (781 ms → 353 ms de `duration_ms` promedio, medido del lado del servidor).
+
+**Documentación completa:** ver el informe de evidencias de Semana 5 en `docs/` (capturas, código, línea base completa y plan de escalabilidad).
 
 ---
 ## 11. Datos Utilizados
@@ -453,7 +517,8 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | ~~Conexión directa a Supabase puede fallar por IPv6~~ | Configuración | — | — | ✅ Resuelto en Semana 4 — Session Pooler de Supabase (IPv4) + `sslmode=require` |
 | ~~Sin tests automatizados~~ | Código | — | — | ✅ Resuelto en Semana 3 — ver [docs/pruebas.md](docs/pruebas.md) |
 | RLS desactivado en Supabase | Seguridad | Media | Medio | **Pendiente** — prioridad próxima semana |
-| La instancia gratuita de Render puede suspenderse por inactividad | Despliegue | Alta | Bajo | Aceptado para el entorno académico; puede causar un arranque inicial lento. Se evaluará monitoreo externo o un plan de pago |
+| La instancia gratuita de Render puede suspenderse por inactividad | Despliegue | Alta | Bajo | Confirmado con evidencia real en Semana 5: cold-start medido de 53.5s tras inactividad. Aceptado para el entorno académico; se evaluará monitoreo externo o un plan de pago |
+| Sin timeout explícito en la llamada a Gemini (LangChain) | Código | Media | Medio | Identificado en Semana 5 con evidencia real: una llamada tardó 177 segundos sin límite. **Pendiente** — mejora propuesta para Semana 6 |
 | Conexión a BD directa al puerto de Postgres, no vía API REST | Seguridad | Baja | Medio | Patrón oficialmente recomendado por Supabase para servidores de larga duración; credenciales solo en variables de entorno del servidor. Pendiente: Network Restrictions de Supabase |
 | Un solo contenedor Docker, sin redundancia | Arquitectura | Baja | Medio | Aceptado como apropiado para el tamaño actual del proyecto; reevaluar solo si el tráfico real lo justifica |
 
@@ -466,8 +531,8 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Semana 2 | ✅ Endpoints /health, /metadata y /predict-demo implementados. Validaciones Pydantic, manejo de errores, capa de servicios separada, CORS con variable de entorno | Swagger funcional, evidencia con curl en CMD, docs/api.md completo |
 | Semana 3 | ✅ 15 tests automatizados (unitarios, contrato, validación, autenticación, chatbot) con pytest, pipeline de CI en GitHub Actions, calidad de código con Ruff (41→0 hallazgos). Políticas RLS: **pendiente** | Resultados de tests en GitHub Actions (`docs/evidencias/semana3-*.png`), registro de errores en [docs/registro-errores-semana-3.md](docs/registro-errores-semana-3.md) |
 | Semana 4 | ✅ Dockerfile para el backend, modelo en GitHub Releases, backend desplegado en Render, pipeline CI/CD completo (despliegue automático vía Deploy Hook). Frontend en Vercel y UptimeRobot: **pendientes** | Backend público funcional (`docs/evidencias/semana4-*.png`), registro de errores en [docs/registro-errores-semana-4.md](docs/registro-errores-semana-4.md) |
-| Semana 5 | Logs con módulo `logging` de Python, persistir memoria del chat en DB| Logs visibles en dashboard de Render, chat que mantiene historial al reiniciar el servidor |
-| Semana 6 | Auditar seguridad y validar acceso por usuario, limpiar exposición de errores, OAuth fuera de modo Testing, documentación final | Demo en producción, README con URL real, defensa técnica preparada |
+| Semana 5 | ✅ Middleware de observabilidad global, tabla `request_logs` con retención automática (`pg_cron`), línea base de rendimiento con comparación antes/después, mejora aplicada (-58.6% overhead en `/predict`). Timeout explícito en Gemini: **pendiente** | Este README, informe de evidencias en `docs/`, `backend/scripts/benchmark_predict.py` y `backend/scripts/setup_retention.sql` |
+| Semana 6 | Auditar seguridad y validar acceso por usuario, limpiar exposición de errores, OAuth fuera de modo Testing, timeout en Gemini, documentación final | Demo en producción, README con URL real, defensa técnica preparada |
 
 ---
 
@@ -479,8 +544,9 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 - La caché conversacional en memoria se pierde si el servidor se reinicia, aunque el historial persistente permanece almacenado en Supabase
 - El modelo OAuth está en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
 - El archivo `rf_model.pkl` de 63MB no puede incluirse en el repositorio por su tamaño (se resuelve descargándolo desde GitHub Releases)
-- La instancia gratuita de Render puede suspenderse por inactividad y provocar un arranque inicial lento
-- El frontend todavía no está desplegado; solo el backend corre en producción por ahora
+- La instancia gratuita de Render puede suspenderse por inactividad y provocar un arranque inicial lento (medido: ~53.5 segundos en Semana 5)
+- La llamada al chatbot (Gemini vía LangChain) no tiene timeout explícito; en un caso real tardó 177 segundos antes de responder
+- Las mediciones de rendimiento de Semana 5 fueron secuenciales (20 peticiones una tras otra); no se probó el comportamiento bajo múltiples usuarios concurrentes
 - El proyecto localmente requiere abrir dos terminales (o usar Docker para el backend) y configurar manualmente los archivos `.env`
 
 ---
@@ -501,6 +567,8 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Pipeline en GitHub Actions | [Ver captura](docs/evidencias/pipeline.png) | Vista resumen del workflow en verde (Success) |
 | Log detallado del pipeline | [Ver captura](docs/evidencias/workflows.png) | Las 15 pruebas ejecutándose una por una dentro de GitHub Actions |
 | Informe de Semana 4 | [Ver PDF](docs/Semana4_Despliegue_Infraestructura_GameVisionIA.pdf) | Evidencias de contenedor, despliegue, endpoints, infraestructura, costos y riesgos |
+| Informe de Semana 5 | [Ver PDF](docs/GameVisionIA_Semana5_Evidencias.pdf) | Instrumentación, línea base de rendimiento, diagnóstico, mejora antes/después y plan de escalabilidad |
+| Línea base de rendimiento (JSON) | [Ver archivo](docs/evidencias/linea_base_rendimiento.json) | Resultado estructurado del benchmark: ambiente, payload, commit y métricas p50/p95/máx/error |
 
 ---
 

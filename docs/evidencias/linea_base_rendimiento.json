@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "fecha_utc": "2026-08-14T04:28:45.544804+00:00",
+    "ambiente": "https://gamevisionia.onrender.com",
+    "version_codigo": "711ca33",
+    "payload_predict": {
+      "price_initial": 9.99,
+      "is_free": 0,
+      "release_year": 2025,
+      "release_month": 6,
+      "genre_Indie": 1,
+      "genre_Casual": 0,
+      "genre_Action": 0,
+      "genre_Adventure": 0,
+      "genre_Simulation": 0,
+      "genre_Strategy": 0,
+      "genre_RPG": 0,
+      "genre_Early_Access": 0,
+      "genre_Free_To_Play": 0,
+      "cat_Single_player": 1,
+      "cat_Multi_player": 0,
+      "cat_PvP": 0,
+      "cat_Co_op": 0,
+      "cat_Online_PvP": 0,
+      "cat_Online_Co_op": 0,
+      "cat_Shared_Split_Screen": 0,
+      "cat_Shared_Split_Screen_PvP": 0,
+      "cat_Shared_Split_Screen_Co_op": 0
+    }
+  },
+  "escenarios": [
+    {
+      "endpoint": "POST /api/predict-demo (sin auth, comparación auxiliar)",
+      "n": 20,
+      "p50_ms": 1021.26,
+      "p95_ms": 1195.21,
+      "max_ms": 1295.32,
+      "avg_ms": 1004.94,
+      "error_rate": 0.0,
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    {
+      "endpoint": "POST /api/predict (real, flujo crítico de producción)",
+      "n": 20,
+      "p50_ms": 1238.83,
+      "p95_ms": 1446.33,
+      "max_ms": 1872.71,
+      "avg_ms": 1286.92,
+      "error_rate": 0.0,
+      "status_codes": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ]
+    },
+    {
+      "endpoint": "POST /api/chat (muestra chica, no percentiles formales)",
+      "n": 3,
+      "avg_ms": 12435.79,
+      "max_ms": 30760.63,
+      "status_codes": [
+        200,
+        200
+      ],
+      "nota": "Muestra pequeña por cuota externa de Gemini; no se calculan p50/p95 formales."
+    }
+  ]
+}
