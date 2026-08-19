@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 
 from dotenv import load_dotenv
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_user
 from database import get_db
-from models import ChatMessage, ChatSession
+from models import ChatMessage, ChatSession, Prediction
 from schemas import ChatMessageInput, ChatMessageResponse
 
 load_dotenv()
@@ -17,6 +18,35 @@ load_dotenv()
 router = APIRouter()
 
 sessions_memory = {}
+
+# Ejecuta la llamada a Gemini en un hilo aparte para poder aplicarle un
+# timeout real. Sin esto, si la API externa se cuelga, la petición se
+# queda esperando indefinidamente (evidencia real: Semana 5, 177s).
+_chat_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+GEMINI_TIMEOUT_S = 20
+
+
+def _verify_session_owner(session_id: int, user_id: str, db: Session) -> ChatSession:
+    """
+    Confirma que la sesión de chat le pertenece al usuario autenticado
+    antes de dejarlo leer o escribir en ella. Sin esto, cualquier usuario
+    logueado podía acceder a la conversación de cualquier otro con solo
+    adivinar un session_id consecutivo (IDOR).
+
+    Devuelve 404 tanto si la sesión no existe como si no le pertenece al
+    usuario -- nunca 403 -- para no confirmarle a alguien no autorizado
+    que un session_id específico sí existe (evita enumeración).
+    """
+    session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+
+    prediction = db.query(Prediction).filter(Prediction.id == session.prediction_id).first()
+    if not prediction or prediction.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+
+    return session
+
 
 def get_llm():
     return ChatGoogleGenerativeAI(
@@ -41,9 +71,7 @@ def build_history(session_id: int, db: Session):
 
 @router.post("/chat", response_model=ChatMessageResponse)
 def chat(data: ChatMessageInput, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
-    session = db.query(ChatSession).filter(ChatSession.id == data.session_id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+    _verify_session_owner(data.session_id, user_id, db)
 
     history = build_history(data.session_id, db)
 
@@ -98,10 +126,19 @@ Responde siempre en español. Sé directo, profesional y útil. Sin introduccion
     llm = get_llm()
     chain = prompt | llm
 
-    response = chain.invoke({
-        "history": history,
-        "input": data.message
-    })
+    try:
+        future = _chat_executor.submit(
+            chain.invoke, {"history": history, "input": data.message}
+        )
+        response = future.result(timeout=GEMINI_TIMEOUT_S)
+    except concurrent.futures.TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail={
+                "error": "chat_timeout",
+                "detail": "El asistente tardó demasiado en responder. Intenta de nuevo en unos segundos."
+            }
+        ) from exc
 
     response_text = response.content
 
@@ -130,6 +167,8 @@ Responde siempre en español. Sé directo, profesional y útil. Sin introduccion
 
 @router.get("/chat/{session_id}/messages")
 def get_messages(session_id: int, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
+    _verify_session_owner(session_id, user_id, db)
+
     messages = db.query(ChatMessage).filter(
         ChatMessage.session_id == session_id
     ).order_by(ChatMessage.created_at).all()

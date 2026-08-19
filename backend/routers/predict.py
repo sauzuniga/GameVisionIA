@@ -1,3 +1,6 @@
+import json
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -8,6 +11,30 @@ from schemas import DemoPredictionResponse, GameInput, PredictionResponse
 from services.predict_service import model, run_prediction
 
 router = APIRouter()
+
+logger = logging.getLogger("gamevision.observability")
+
+
+def _log_and_hide_error(request_id: str | None, exc: Exception) -> dict:
+    """
+    Registra el detalle real de la excepción solo en el log del servidor
+    (nunca al cliente) y devuelve un mensaje genérico y seguro para la
+    respuesta HTTP. Evita filtrar rutas de archivos, nombres de
+    librerías o detalles de infraestructura en la API pública.
+    """
+    try:
+        logger.error(json.dumps({
+            "event": "prediction_error",
+            "request_id": request_id,
+            "error": str(exc)[:300],
+        }, ensure_ascii=False))
+    except Exception:
+        pass
+
+    return {
+        "error": "prediction_failed",
+        "detail": "Ocurrió un error al ejecutar el modelo. Intenta nuevamente."
+    }
 
 
 def _stash_observability_state(request: Request, result: dict) -> None:
@@ -49,10 +76,7 @@ def predict(
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail={
-                "error": "prediction_failed",
-                "detail": f"Error al ejecutar el modelo: {str(exc)}"
-            }
+            detail=_log_and_hide_error(request_id, exc),
         ) from exc
 
     try:
@@ -75,9 +99,6 @@ def predict(
             ])
         )
         db.add(db_prediction)
-        # flush() envía el INSERT y trae el id/created_at generados por
-        # Postgres en el mismo viaje de red (RETURNING), sin cerrar la
-        # transacción todavía — así evitamos un commit()+refresh() extra.
         db.flush()
         prediction_id = db_prediction.id
         prediction_created_at = db_prediction.created_at
@@ -142,10 +163,7 @@ def predict_demo(game: GameInput, request: Request):
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail={
-                "error": "prediction_failed",
-                "detail": f"Error al ejecutar el modelo: {str(exc)}"
-            }
+            detail=_log_and_hide_error(request_id, exc),
         ) from exc
 
     return {

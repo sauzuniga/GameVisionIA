@@ -66,3 +66,29 @@ def test_chat_responde_y_guarda_mensajes(monkeypatch) -> None:
         assert "¿Qué género le recomiendas a mi juego?" in contenidos
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_chat_rechaza_sesion_de_otro_usuario(monkeypatch) -> None:
+    """
+    Caso adversarial (Semana 6): un usuario autenticado no debe poder
+    leer ni escribir en la sesión de chat de otro usuario, aunque
+    adivine un session_id válido y consecutivo (IDOR).
+    """
+    monkeypatch.setattr(
+        chat_router, "get_llm",
+        lambda: FakeListChatModel(responses=["esto no debería llegar a usarse"])
+    )
+    session_id = crear_sesion_de_chat()  # creada por "usuario-de-prueba-123"
+
+    app.dependency_overrides[get_current_user] = lambda: "usuario-atacante-999"
+    try:
+        response = client.post("/api/chat", json={
+            "session_id": session_id,
+            "message": "Intento de acceso no autorizado",
+        })
+        assert response.status_code == 404
+
+        historial = client.get(f"/api/chat/{session_id}/messages")
+        assert historial.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
