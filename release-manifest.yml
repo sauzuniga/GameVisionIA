@@ -1,0 +1,67 @@
+release: v1.0.0-rc.1
+commit: b21aa85
+fecha: 2026-08-19
+
+componentes:
+  codigo:
+    version: v1.0.0-rc.1
+
+  modelo:
+    nombre: rf_model.pkl
+    version: v1.0.0
+    alojamiento: GitHub Releases
+    metricas_entrenamiento: "accuracy ~84%, F1 ~47%"
+    dataset: "~58,000 juegos de Steam"
+
+  componente_conversacional:
+    proveedor: Google Gemini
+    modelo: gemini-2.5-flash
+    prompt_version: sin versionar formalmente   # limitación declarada, no oculta
+
+  pruebas:
+    suite: 20 pruebas automatizadas (pytest)
+    workflow_run: https://github.com/sauzuniga/GameVisionIA/actions/runs/32318861167    # link al run verde de GitHub Actions de este commit
+    smoke_test: "Parcial, ejecutado en producción el 19/08/2026: /health OK, /predict (real) OK, /chat OK, verificación cruzada de sesiones OK. Repetir smoke test completo ~24h antes de la defensa."
+
+ambiente:
+  backend: https://gamevisionia.onrender.com
+  frontend: https://game-vision-ia.vercel.app
+  base_datos: Supabase (Session Pooler)
+
+seguridad:
+  oauth_google: "En producción (publicado desde modo Testing el 18/08/2026) — cualquier cuenta de Google puede autenticarse"
+  rls: "Activado en predictions, chat_sessions, chat_messages y request_logs (confirmado 19/08/2026 vía Security Advisor)"
+  idor_chat: "Verificación de dueño de sesión en POST /api/chat y GET /api/chat/{id}/messages. Probado en producción real: acceso cruzado entre cuentas devuelve 404, acceso propio devuelve 200 con datos correctos"
+  manejo_de_errores: "Detalles de excepciones ya no se exponen al cliente en /predict y /predict-demo; se registran solo en el log del servidor"
+  timeout_ia: "20s explícitos en la llamada a Gemini (ThreadPoolExecutor); responde 504 controlado si se excede, en vez de colgarse indefinidamente"
+  secretos: "Gestionados vía variables de entorno en Render/Vercel; .env excluido del repositorio (.gitignore)"
+
+riesgos_priorizados:
+  - riesgo: "IDOR — acceso a sesiones de chat de otros usuarios"
+    estado: "Corregido"
+    evidencia: "test_chat_rechaza_sesion_de_otro_usuario (pytest) + prueba manual en producción (404 cruzado / 200 propio)"
+  - riesgo: "OAuth de Google en modo Testing (bloqueaba cuentas no aprobadas)"
+    estado: "Corregido"
+    evidencia: "Captura de Google Cloud Console: Estado de publicación = En producción"
+  - riesgo: "Row Level Security desactivado en tablas públicas de Supabase"
+    estado: "Corregido"
+    evidencia: "Security Advisor: 0 errores CRITICAL tras enable_rls.sql"
+  - riesgo: "Sin timeout en la llamada a Gemini"
+    estado: "Corregido"
+    evidencia: "Semana 5: llamada real de 177s sin control -> ahora limitada a 20s con error 504 controlado"
+  - riesgo: "Mensajes de error exponían detalles internos de excepciones"
+    estado: "Corregido"
+    evidencia: "routers/predict.py: detalle real solo en logs, respuesta genérica al cliente"
+  - riesgo: "Sin rate limiting en /predict ni /chat"
+    estado: "Declarado, no corregido"
+    evidencia: "Decisión consciente: cambio de mayor riesgo/esfuerzo tan cerca de la defensa final"
+
+limitaciones_conocidas:
+  - "Sin rate limiting en /predict ni /chat"
+  - "Prompt del chatbot sin versionado formal"
+  - "Cold-start de ~53s en el plan gratuito de Render tras inactividad prolongada"
+  - "Dependencias sin pin exacto de versión en requirements.txt"
+
+rollback:
+  version_estable_anterior: 1e62dbc
+  procedimiento: "Ver docs/final/plan-contingencia-demo.md"
