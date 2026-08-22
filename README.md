@@ -4,10 +4,13 @@
 ## 1. Información General
 
 **Módulo:** Módulo 4 - Desarrollo de Aplicaciones con IA  
-**Semana:** Semana 5 - Observabilidad, rendimiento y escalabilidad (documento acumulativo desde Semana 1)  
+**Semana:** Semana 6 - Seguridad, versionamiento y defensa técnica final (documento acumulativo desde Semana 1)  
 **Nombre del equipo:** GameVision  
 **URL en producción (backend):** https://gamevisionia.onrender.com  
 **URL en producción (frontend):** https://game-vision-ia.vercel.app  
+**Release / tag:** [`v1.0.0-rc.1`](https://github.com/sauzuniga/GameVisionIA/releases/tag/v1.0.0-rc.1) — ver [release-manifest.yml](release-manifest.yml) para el commit exacto y los componentes de cada versión  
+**Informe final:** [`docs/final/informe-final.md`](docs/final/informe-final.md)  
+**Presentación final:** [`docs/final/presentacion-final.pdf`](docs/final/presentacion-final.pdf)  
 **Integrantes:**
 
 - Bryan Orlando Girón Argueta
@@ -90,13 +93,19 @@ El modelo Random Forest analiza las 22 características configurables del juego 
 - Retención automática de logs vía `pg_cron` (job `purge_request_logs_30d`, corre diario, borra filas con más de 30 días) — ver [backend/scripts/setup_retention.sql](backend/scripts/setup_retention.sql)
 - Script de línea base de rendimiento (`backend/scripts/benchmark_predict.py`) con cálculo de p50/p95/máx/tasa de error sobre `/predict-demo`, `/predict` real y `/chat`
 - Optimización aplicada en `/api/predict`: se redujo de 4 a 2-3 viajes de red hacia Supabase (uso de `flush()` en vez de dos ciclos de `commit()`+`refresh()`), con -58.6% de reducción medida en el overhead de autenticación + base de datos
+- Google OAuth publicado a producción (fuera de modo "Testing") — cualquier cuenta de Google puede autenticarse, no solo cuentas aprobadas manualmente
+- Row Level Security (RLS) activado en las 4 tablas públicas de Supabase (`predictions`, `chat_sessions`, `chat_messages`, `request_logs`) — ver [backend/scripts/enable_rls.sql](backend/scripts/enable_rls.sql)
+- Corrección de vulnerabilidad IDOR en el chat: `POST /api/chat` y `GET /api/chat/{id}/messages` ahora verifican que la sesión le pertenezca al usuario autenticado antes de permitir acceso — probado con test adversarial automatizado y en producción real (acceso cruzado entre cuentas → 404)
+- Timeout explícito de 20s en la llamada a Gemini (antes sin límite; una llamada real había tardado 177s) — responde 504 controlado si se excede
+- Mensajes de error ya no exponen detalles internos de excepciones al cliente; el detalle real solo se registra en el log del servidor
+- Tag y release publicados en GitHub (`v1.0.0-rc.1`), con manifiesto de versión (`release-manifest.yml`) documentando código, modelo, componente conversacional y pruebas
 
 ### Funcionalidades incompletas o pendientes
 
-- Google OAuth en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
-- Row Level Security (RLS) sin activar en Supabase
-- Timeout explícito en la llamada de LangChain hacia Gemini — identificado como riesgo en Semana 5 (una llamada real tardó 177 segundos sin límite), queda como mejora propuesta para Semana 6
+- Rate limiting en `/predict` y `/chat` — decisión consciente de no implementarlo tan cerca de la defensa final, por el riesgo de romper algo sin tiempo de probarlo a fondo
 - Prueba de carga concurrente (las mediciones de Semana 5 fueron secuenciales, no simulan múltiples usuarios al mismo tiempo)
+- Versionado formal del prompt del chatbot
+- Rollback probado en un ensayo real (mecanismo confirmado disponible en Render; ejecución de prueba programada para el freeze previo a la defensa)
 
 ### Evidencias actuales
 
@@ -128,6 +137,7 @@ Ver documento completo: [docs/arquitectura-actual.md](docs/arquitectura-actual.m
 | Servicios externos | Render, Vercel, Supabase (Auth + PostgreSQL), Google Cloud OAuth, Google AI Studio (Gemini API) y GitHub Releases | Activos |
 | Configuración | Backend contenerizado con Docker, desplegado en Render con variables de entorno gestionadas en el panel del servicio. Frontend desplegado en Vercel con build automático desde GitHub | Backend y frontend en producción |
 | Observabilidad | Middleware global en `main.py` + tabla `request_logs` en Supabase con retención automática de 30 días (`pg_cron`) | Funcional en producción |
+| Seguridad | OAuth publicado a producción, RLS activo en las 4 tablas, IDOR corregido y probado, timeout de 20s en Gemini, errores sin exponer detalles internos | Funcional en producción |
 
 **Diagrama:** Ver [docs/arquitectura-actual.md](docs/arquitectura-actual.md)
 
@@ -148,8 +158,11 @@ Ver documento completo: [docs/arquitectura-objetivo.md](docs/arquitectura-objeti
 - ✅ Logs estructurados en JSON (módulo `logging` de Python) capturados por Render, más persistencia en tabla `request_logs` de Supabase con retención automática de 30 días
 - ✅ Endpoint `GET /health` para verificar estado del modelo y la base de datos
 - ✅ Línea base de rendimiento documentada (p50/p95/máx/error) con comparación antes/después de una mejora aplicada
-- Row Level Security (RLS) activado en Supabase — pendiente
-- Timeout explícito en la llamada a Gemini — pendiente (Semana 6)
+- ✅ Row Level Security (RLS) activado en Supabase
+- ✅ Timeout explícito en la llamada a Gemini
+- ✅ OAuth de Google publicado a producción (fuera de modo Testing)
+- ✅ Tag y release publicados en GitHub, con manifiesto de versión
+- Rate limiting en endpoints de predicción y chat — pendiente, declarado como limitación aceptada
 - Evaluar UptimeRobot o health checks externos para monitorear disponibilidad del backend durante la demo — pendiente
 
 **Diagrama:** Ver [docs/arquitectura-objetivo.md](docs/arquitectura-objetivo.md)
@@ -182,6 +195,7 @@ GameVisionIA/
     scripts/
       benchmark_predict.py
       setup_retention.sql
+      enable_rls.sql
     main.py
     database.py
     models.py
@@ -213,6 +227,13 @@ GameVisionIA/
     pruebas.md
     registro-errores-semana-3.md
     evidencias/
+    final/
+      plan-contingencia-demo.md
+      informe-final.md          # pendiente
+      informe-final.pdf         # pendiente
+      presentacion-final.pdf    # pendiente
+      respaldo/                 # pendiente (capturas de respaldo para el freeze)
+  release-manifest.yml
   README.md
   .gitignore
 ```
@@ -222,6 +243,7 @@ GameVisionIA/
 - `backend/` — lógica del servidor FastAPI, modelos de datos SQLAlchemy, endpoints, verificación JWT y `Dockerfile` para contenerizar el servicio
 - `frontend/` — aplicación React con Vite, componentes de UI y cliente de Supabase
 - `docs/` — documentación técnica del módulo 4: diagnóstico, arquitecturas, riesgos, pruebas, infraestructura, costos y registro de errores por semana
+- `docs/final/` — entregables de la evaluación final: informe integrador, presentación y plan de contingencia de la demo. **A la fecha de este README, solo `plan-contingencia-demo.md` existe; el informe y la presentación finales están en construcción**
 - El archivo `rf_model.pkl` (63MB) no está en el repositorio; en local se copia manualmente, en producción el `Dockerfile` lo descarga automáticamente desde GitHub Releases durante el build
 
 ---
@@ -317,6 +339,8 @@ El `Dockerfile` lo descarga automáticamente durante la construcción de la imag
 backend/rf_model.pkl
 ```
 
+**Notebook de entrenamiento:** el proceso de limpieza de datos, entrenamiento y evaluación del modelo (de donde salen las métricas de accuracy ~84% y F1 ~47% citadas en este README) está documentado en [Google Colab](https://colab.research.google.com/drive/1rz4PfT_a_I4DltkfnBvSCp5shMwzzWYw?usp=sharing).
+
 ### Variables de entorno
 
 **backend/.env**
@@ -365,7 +389,7 @@ cd backend
 pip install requests   # única dependencia adicional para el script
 ```
 
-Se necesita un `TEST_ACCESS_TOKEN` en `backend/.env` — un JWT real de una cuenta de prueba (debe estar agregada como "test user" en Google Cloud Console, ya que el OAuth sigue en modo Testing). Para obtenerlo: loguearse en https://game-vision-ia.vercel.app con esa cuenta, abrir las herramientas de desarrollador del navegador (F12) → pestaña Application/Almacenamiento → Local Storage → buscar la clave `sb-<project-ref>-auth-token` → copiar el valor de `access_token` de ahí. El token expira en aproximadamente 1 hora. Opcionalmente se puede definir `BENCHMARK_BASE_URL` para apuntar a un ambiente distinto al de producción. Luego:
+Se necesita un `TEST_ACCESS_TOKEN` en `backend/.env` — un JWT real de una cuenta de Google cualquiera (el OAuth ya está publicado a producción desde Semana 6, así que no hace falta que la cuenta esté pre-aprobada como test user). Para obtenerlo: loguearse en https://game-vision-ia.vercel.app con esa cuenta, abrir las herramientas de desarrollador del navegador (F12) → pestaña Application/Almacenamiento → Local Storage → buscar la clave `sb-<project-ref>-auth-token` → copiar el valor de `access_token` de ahí. El token expira en aproximadamente 1 hora. Opcionalmente se puede definir `BENCHMARK_BASE_URL` para apuntar a un ambiente distinto al de producción. Luego:
 
 ```bash
 python scripts/benchmark_predict.py
@@ -488,6 +512,29 @@ Se incorporó observabilidad mínima real al proyecto (no un ejemplo aparte), se
 **Documentación completa:** ver el informe de evidencias de Semana 5 en `docs/` (capturas, código, línea base completa y plan de escalabilidad).
 
 ---
+
+## Seguridad, versionamiento y defensa final - Semana 6
+
+Se revisó el proyecto real en busca de riesgos de seguridad, se corrigieron los más prioritarios con evidencia verificable, y se publicó un release identificable y trazable, siguiendo la lógica de "convertir el proyecto en un release trazable y defendible".
+
+**Riesgos identificados y controles aplicados:**
+
+| Riesgo | Estado | Evidencia |
+|---|---|---|
+| IDOR — acceso a sesiones de chat de otros usuarios (`session_id` consecutivo y adivinable, sin verificar dueño) | Corregido | `test_chat_rechaza_sesion_de_otro_usuario` (pytest) + prueba manual en producción: acceso cruzado entre cuentas → 404, acceso propio → 200 |
+| OAuth de Google en modo Testing (bloqueaba cuentas no aprobadas) | Corregido | App publicada a producción en Google Cloud Console |
+| Row Level Security desactivado en 4 tablas públicas de Supabase | Corregido | Security Advisor sin errores CRITICAL tras `enable_rls.sql` |
+| Sin timeout en la llamada a Gemini (evidencia real: 177s sin control, Semana 5) | Corregido | Timeout de 20s vía `ThreadPoolExecutor`; responde 504 controlado |
+| Mensajes de error exponían detalles internos de excepciones | Corregido | `routers/predict.py`: detalle real solo en logs, respuesta genérica al cliente |
+| Sin rate limiting en `/predict` ni `/chat` | Declarado, no corregido | Decisión consciente: cambio de mayor riesgo/esfuerzo tan cerca de la defensa final |
+
+**Versionamiento:** primer release formal del proyecto, siguiendo Semantic Versioning — `v1.0.0-rc.1`, publicado como pre-release en GitHub. El manifiesto [`release-manifest.yml`](release-manifest.yml) documenta el commit exacto, la versión del modelo, del componente conversacional, y el estado de las pruebas para ese release.
+
+**Rollback:** confirmado disponible vía el botón "Rollback" del historial de deploys de Render (Dashboard → servicio → Events), con un procedimiento alternativo vía `git checkout` documentado en [`docs/final/plan-contingencia-demo.md`](docs/final/plan-contingencia-demo.md) por si el primero no está disponible para un commit específico.
+
+**Plan de contingencia de la demostración:** riesgos, prevención y respuesta preparada para la defensa en vivo — ver [`docs/final/plan-contingencia-demo.md`](docs/final/plan-contingencia-demo.md).
+
+---
 ## 11. Datos Utilizados
 
 | Fuente de datos | Tipo de datos | Uso dentro del proyecto | Observaciones |
@@ -501,7 +548,7 @@ Se incorporó observabilidad mínima real al proyecto (no un ejemplo aparte), se
 - El dataset de Steam es público y no contiene información sensible
 - Los datos de usuarios se almacenan en Supabase con autenticación; cada usuario solo accede a los suyos
 - El modelo ya está entrenado; no se requiere el dataset original para ejecutar la aplicación
-- Las tablas de Supabase todavía no tienen Row Level Security activado. La aplicación restringe el acceso desde el backend mediante JWT y `user_id`, pero la activación de políticas RLS permanece como una mejora prioritaria de seguridad.
+- Las tablas de Supabase tienen Row Level Security (RLS) activado desde Semana 6. El backend se conecta con un rol que, por diseño de Postgres, no queda sujeto a RLS (ignora las políticas al ser el dueño de las tablas); RLS bloquea específicamente el acceso público no autorizado vía la API REST de Supabase
 ---
 
 ## 12. Riesgos Técnicos y Deuda Técnica
@@ -516,9 +563,13 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Configuración incorrecta de URLs en producción | Configuración | Media | Alto | Verificar que `VITE_API_URL` y `ALLOWED_ORIGINS` estén correctamente definidos en el entorno de despliegue |
 | ~~Conexión directa a Supabase puede fallar por IPv6~~ | Configuración | — | — | ✅ Resuelto en Semana 4 — Session Pooler de Supabase (IPv4) + `sslmode=require` |
 | ~~Sin tests automatizados~~ | Código | — | — | ✅ Resuelto en Semana 3 — ver [docs/pruebas.md](docs/pruebas.md) |
-| RLS desactivado en Supabase | Seguridad | Media | Medio | **Pendiente** — prioridad próxima semana |
+| ~~RLS desactivado en Supabase~~ | Seguridad | — | — | ✅ Resuelto en Semana 6 — activado en las 4 tablas públicas |
 | La instancia gratuita de Render puede suspenderse por inactividad | Despliegue | Alta | Bajo | Confirmado con evidencia real en Semana 5: cold-start medido de 53.5s tras inactividad. Aceptado para el entorno académico; se evaluará monitoreo externo o un plan de pago |
-| Sin timeout explícito en la llamada a Gemini (LangChain) | Código | Media | Medio | Identificado en Semana 5 con evidencia real: una llamada tardó 177 segundos sin límite. **Pendiente** — mejora propuesta para Semana 6 |
+| ~~Sin timeout explícito en la llamada a Gemini (LangChain)~~ | Código | — | — | ✅ Resuelto en Semana 6 — timeout de 20s, responde 504 controlado |
+| ~~IDOR en sesiones de chat (session_id adivinable sin verificar dueño)~~ | Seguridad | — | — | ✅ Resuelto en Semana 6 — verificación de dueño en `POST /api/chat` y `GET /api/chat/{id}/messages`, probado en producción |
+| ~~Mensajes de error exponían detalles internos de excepciones~~ | Seguridad | — | — | ✅ Resuelto en Semana 6 — detalle real solo en logs del servidor |
+| ~~OAuth de Google en modo Testing~~ | Seguridad | — | — | ✅ Resuelto en Semana 6 — app publicada a producción |
+| Sin rate limiting en `/predict` ni `/chat` | Seguridad | Media | Medio | **Declarado, no corregido** — decisión consciente por proximidad a la defensa final; agotamiento de cuota o abuso del endpoint quedan sin control automático |
 | Conexión a BD directa al puerto de Postgres, no vía API REST | Seguridad | Baja | Medio | Patrón oficialmente recomendado por Supabase para servidores de larga duración; credenciales solo en variables de entorno del servidor. Pendiente: Network Restrictions de Supabase |
 | Un solo contenedor Docker, sin redundancia | Arquitectura | Baja | Medio | Aceptado como apropiado para el tamaño actual del proyecto; reevaluar solo si el tráfico real lo justifica |
 
@@ -532,7 +583,7 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Semana 3 | ✅ 15 tests automatizados (unitarios, contrato, validación, autenticación, chatbot) con pytest, pipeline de CI en GitHub Actions, calidad de código con Ruff (41→0 hallazgos). Políticas RLS: **pendiente** | Resultados de tests en GitHub Actions (`docs/evidencias/semana3-*.png`), registro de errores en [docs/registro-errores-semana-3.md](docs/registro-errores-semana-3.md) |
 | Semana 4 | ✅ Dockerfile para el backend, modelo en GitHub Releases, backend desplegado en Render, pipeline CI/CD completo (despliegue automático vía Deploy Hook). Frontend en Vercel y UptimeRobot: **pendientes** | Backend público funcional (`docs/evidencias/semana4-*.png`), registro de errores en [docs/registro-errores-semana-4.md](docs/registro-errores-semana-4.md) |
 | Semana 5 | ✅ Middleware de observabilidad global, tabla `request_logs` con retención automática (`pg_cron`), línea base de rendimiento con comparación antes/después, mejora aplicada (-58.6% overhead en `/predict`). Timeout explícito en Gemini: **pendiente** | Este README, informe de evidencias en `docs/`, `backend/scripts/benchmark_predict.py` y `backend/scripts/setup_retention.sql` |
-| Semana 6 | Auditar seguridad y validar acceso por usuario, limpiar exposición de errores, OAuth fuera de modo Testing, timeout en Gemini, documentación final | Demo en producción, README con URL real, defensa técnica preparada |
+| Semana 6 | ✅ IDOR corregido en chat, OAuth publicado a producción, RLS activado, timeout en Gemini, mensajes de error sin exponer detalles internos, tag/release `v1.0.0-rc.1` con manifiesto. Rate limiting: **declarado, no corregido**. Informe final y presentación: **en construcción** | Este README, `release-manifest.yml`, `docs/final/plan-contingencia-demo.md`, test adversarial `test_chat_rechaza_sesion_de_otro_usuario`, [release en GitHub](https://github.com/sauzuniga/GameVisionIA/releases/tag/v1.0.0-rc.1) |
 
 ---
 
@@ -542,11 +593,12 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 - El F1-score de ~47% indica dificultad para identificar correctamente juegos exitosos debido al desbalance natural del dataset
 - El chatbot depende de la API externa de Gemini; sin conexión a internet o sin cuota disponible no funciona
 - La caché conversacional en memoria se pierde si el servidor se reinicia, aunque el historial persistente permanece almacenado en Supabase
-- El modelo OAuth está en modo "Testing"; solo cuentas aprobadas manualmente pueden acceder
 - El archivo `rf_model.pkl` de 63MB no puede incluirse en el repositorio por su tamaño (se resuelve descargándolo desde GitHub Releases)
 - La instancia gratuita de Render puede suspenderse por inactividad y provocar un arranque inicial lento (medido: ~53.5 segundos en Semana 5)
-- La llamada al chatbot (Gemini vía LangChain) no tiene timeout explícito; en un caso real tardó 177 segundos antes de responder
 - Las mediciones de rendimiento de Semana 5 fueron secuenciales (20 peticiones una tras otra); no se probó el comportamiento bajo múltiples usuarios concurrentes
+- Sin rate limiting en `/predict` ni `/chat` — decisión consciente, no implementada por proximidad a la defensa final
+- El prompt del chatbot no tiene versionado formal
+- El rollback está confirmado como disponible (Render) pero pendiente de un ensayo real antes de la defensa
 - El proyecto localmente requiere abrir dos terminales (o usar Docker para el backend) y configurar manualmente los archivos `.env`
 
 ---
@@ -569,6 +621,12 @@ Ver documento completo: [docs/riesgos-tecnicos.md](docs/riesgos-tecnicos.md)
 | Informe de Semana 4 | [Ver PDF](docs/Semana4_Despliegue_Infraestructura_GameVisionIA.pdf) | Evidencias de contenedor, despliegue, endpoints, infraestructura, costos y riesgos |
 | Informe de Semana 5 | [Ver PDF](docs/GameVisionIA_Semana5_Evidencias.pdf) | Instrumentación, línea base de rendimiento, diagnóstico, mejora antes/después y plan de escalabilidad |
 | Línea base de rendimiento (JSON) | [Ver archivo](docs/evidencias/linea_base_rendimiento.json) | Resultado estructurado del benchmark: ambiente, payload, commit y métricas p50/p95/máx/error |
+| Manifiesto de release | [Ver archivo](release-manifest.yml) | Commit, versión del modelo y del componente conversacional, estado de pruebas, riesgos y controles del release `v1.0.0-rc.1` |
+| Release en GitHub | [Ver release](https://github.com/sauzuniga/GameVisionIA/releases/tag/v1.0.0-rc.1) | Tag `v1.0.0-rc.1`, notas de la versión, pre-release |
+| Plan de contingencia de la demo | [Ver archivo](docs/final/plan-contingencia-demo.md) | Riesgos, prevención y respuesta preparada para la defensa en vivo |
+| Informe final integrador | [Ver documento](docs/final/informe-final.md) | Síntesis de las seis sesiones del Módulo 4 |
+| Presentación final | [Ver PDF](docs/final/presentacion-final.pdf) | Presentación de 7 minutos para la defensa técnica |
+| Capturas de seguridad de Semana 6 (OAuth, Security Advisor, IDOR) | [Ver carpeta](docs/final/respaldo/) | Evidencia visual de los controles de seguridad aplicados |
 
 ---
 
